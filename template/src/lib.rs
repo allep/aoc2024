@@ -50,6 +50,10 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+// Note on printing during tests:
+// - Run test sequentially in case of need with: cargo test -- --test-threads 1
+// - Do not capture test output for debug with: cargo test -- --nocapture
+
 #[cfg(test)]
 mod tests {
     use io::BufReader;

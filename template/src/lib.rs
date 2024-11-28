@@ -1,5 +1,7 @@
 use csv::Reader;
-use std::{error::Error, fs::File, io, process};
+use serde::de::DeserializeOwned;
+use std::io::{self, Read};
+use std::{error::Error, fs::File, process};
 
 #[derive(Debug, serde::Deserialize)]
 struct Entry {
@@ -30,6 +32,19 @@ impl Config {
     }
 }
 
+fn deserialize<R, T>(reader: R)
+where
+    R: Read,
+    T: std::fmt::Debug + DeserializeOwned,
+{
+    let mut rdr = Reader::from_reader(reader);
+    for result in rdr.deserialize() {
+        println!(" - Read one record");
+        let record: T = result.unwrap();
+        println!("{:?}", record);
+    }
+}
+
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     // TODO
     Ok(())
@@ -50,13 +65,7 @@ output_start,input_start,input_range
 52,50,48
 ";
 
-        let mut rdr = Reader::from_reader(data.as_bytes());
-        println!("Attempt to deserialize");
-        for result in rdr.deserialize() {
-            println!(" - Read one record");
-            let record: Entry = result.unwrap();
-            println!("{:?}", record);
-        }
+        deserialize::<&[u8], Entry>(data.as_bytes());
     }
 
     #[test]
@@ -66,12 +75,6 @@ output_start,input_start,input_range
         let file = File::open("content/sample-content.csv").unwrap();
         let reader = BufReader::new(file);
 
-        let mut rdr = Reader::from_reader(reader);
-        println!("Attempt to deserialize");
-        for result in rdr.deserialize() {
-            println!(" - Read one record");
-            let record: Entry = result.unwrap();
-            println!("{:?}", record);
-        }
+        deserialize::<BufReader<File>, Entry>(reader);
     }
 }

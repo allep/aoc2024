@@ -32,17 +32,19 @@ impl Config {
     }
 }
 
-fn deserialize<R, T>(reader: R)
+fn deserialize<T, R>(reader: R) -> Result<Vec<T>, Box<dyn std::error::Error>>
 where
-    R: Read,
     T: std::fmt::Debug + DeserializeOwned,
+    R: Read,
 {
     let mut rdr = Reader::from_reader(reader);
+    let mut structs: Vec<T> = Vec::new();
     for result in rdr.deserialize() {
-        println!(" - Read one record");
-        let record: T = result.unwrap();
-        println!("{:?}", record);
+        let record: T = result?;
+        structs.push(record);
     }
+
+    Ok(structs)
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
@@ -69,7 +71,7 @@ output_start,input_start,input_range
 52,50,48
 ";
 
-        deserialize::<&[u8], Entry>(data.as_bytes());
+        let structs: Vec<Entry> = deserialize(data.as_bytes()).unwrap();
     }
 
     #[test]
@@ -79,6 +81,6 @@ output_start,input_start,input_range
         let file = File::open("content/sample-content.csv").unwrap();
         let reader = BufReader::new(file);
 
-        deserialize::<BufReader<File>, Entry>(reader);
+        let structs: Vec<Entry> = deserialize(reader).unwrap();
     }
 }

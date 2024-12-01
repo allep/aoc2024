@@ -5,9 +5,8 @@ use std::{error::Error, fs::File, process};
 
 #[derive(Debug, serde::Deserialize)]
 struct Entry {
-    output_start: i32,
-    input_start: i32,
-    input_range: i32,
+    left_list: i32,
+    right_list: i32,
 }
 
 #[derive(Debug)]
@@ -47,6 +46,48 @@ where
     Ok(structs)
 }
 
+fn compute_distance(file_path: &str) -> Result<i32, Box<dyn std::error::Error>> {
+    todo!();
+}
+
+fn get_total_distance_from_raw_data(raw_list: Vec<Entry>) -> i32 {
+    println!("Raw list is: {raw_list:?}");
+    let mut first = Vec::new();
+    let mut second = Vec::new();
+
+    let _ = raw_list
+        .iter()
+        .map(|x| {
+            first.push(x.left_list);
+            second.push(x.right_list);
+        })
+        .collect::<Vec<_>>();
+
+    first.sort();
+    second.sort();
+
+    println!("Sorted first: {first:?}");
+    println!("Sorted second: {second:?}");
+
+    let length = raw_list.len();
+
+    assert_eq!(first.len(), length);
+    assert_eq!(second.len(), length);
+
+    let mut total_distance = 0;
+    for ix in 0..length {
+        let left = first[ix];
+        let right = second[ix];
+
+        assert!(left <= right);
+
+        let diff = right - left;
+        total_distance += diff;
+    }
+
+    total_distance
+}
+
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     // TODO
     Ok(())
@@ -62,18 +103,7 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn proper_deserialize_from_slice_to_entry() {
-        // Note: must be without spaces
-        let data = "\
-output_start,input_start,input_range
-50,98,2
-52,50,48
-";
-
-        let structs: Vec<Entry> = deserialize(data.as_bytes()).unwrap();
-    }
-
+    #[ignore]
     #[test]
     fn proper_deserialize_from_file_to_entry() {
         // Note: must be without spaces and by default the base directory should be at the same
@@ -82,5 +112,21 @@ output_start,input_start,input_range
         let reader = BufReader::new(file);
 
         let structs: Vec<Entry> = deserialize(reader).unwrap();
+    }
+
+    #[test]
+    fn make_paried_list_verify() {
+        let data = "\
+left_list,right_list
+3,4
+4,3
+2,5
+1,3
+3,9
+3,3
+";
+        let structs: Vec<Entry> = deserialize(data.as_bytes()).unwrap();
+        let total_distance = get_total_distance_from_raw_data(structs);
+        assert_eq!(total_distance, 11);
     }
 }

@@ -41,7 +41,7 @@ where
     Ok(structs)
 }
 
-fn get_total_distance_from_raw_data(raw_list: Vec<Entry>) -> i32 {
+fn get_total_distance_from_raw_data(raw_list: &Vec<Entry>) -> i32 {
     let mut first = Vec::new();
     let mut second = Vec::new();
 
@@ -75,18 +75,36 @@ fn get_total_distance_from_raw_data(raw_list: Vec<Entry>) -> i32 {
     total_distance
 }
 
-fn get_total_similarity_score_from_raw_data(raw_list: Vec<Entry>) -> i32 {
-    todo!();
+fn get_total_similarity_score_from_raw_data(raw_list: &Vec<Entry>) -> i32 {
+    let mut first = Vec::new();
+    let mut second = Vec::new();
+
+    let _ = raw_list
+        .iter()
+        .map(|x| {
+            first.push(x.left_list);
+            second.push(x.right_list);
+        })
+        .collect::<Vec<_>>();
+
+    let mut score = 0;
+    for x in first {
+        let occurrences = second.iter().filter(|&n| *n == x).count();
+        score += x * occurrences as i32;
+    }
+
+    score
 }
 
-pub fn run(config: Config) -> Result<i32, Box<dyn Error>> {
+pub fn run(config: Config) -> Result<(i32, i32), Box<dyn Error>> {
     let file = File::open(config.puzzle_input)?;
     let reader = BufReader::new(file);
 
     let structs: Vec<Entry> = deserialize(reader)?;
-    let total_distance = get_total_distance_from_raw_data(structs);
+    let total_distance = get_total_distance_from_raw_data(&structs);
+    let similarity_score = get_total_similarity_score_from_raw_data(&structs);
 
-    Ok(total_distance)
+    Ok((total_distance, similarity_score))
 }
 
 // Note on printing during tests:
@@ -111,7 +129,7 @@ left_list,right_list
 3,3
 ";
         let structs: Vec<Entry> = deserialize(data.as_bytes()).unwrap();
-        let total_distance = get_total_distance_from_raw_data(structs);
+        let total_distance = get_total_distance_from_raw_data(&structs);
         assert_eq!(total_distance, 11);
     }
 
@@ -127,7 +145,7 @@ left_list,right_list
 3,3
 ";
         let structs: Vec<Entry> = deserialize(data.as_bytes()).unwrap();
-        let total_similarity_score = get_total_similarity_score_from_raw_data(structs);
+        let total_similarity_score = get_total_similarity_score_from_raw_data(&structs);
         assert_eq!(total_similarity_score, 31);
     }
 }

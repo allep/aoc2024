@@ -75,6 +75,10 @@ fn get_total_distance_from_raw_data(raw_list: Vec<Entry>) -> i32 {
     total_distance
 }
 
+fn get_total_similarity_score_from_raw_data(raw_list: Vec<Entry>) -> i32 {
+    todo!();
+}
+
 pub fn run(config: Config) -> Result<i32, Box<dyn Error>> {
     let file = File::open(config.puzzle_input)?;
     let reader = BufReader::new(file);
@@ -95,19 +99,8 @@ mod tests {
 
     use super::*;
 
-    #[ignore]
     #[test]
-    fn proper_deserialize_from_file_to_entry() {
-        // Note: must be without spaces and by default the base directory should be at the same
-        // level of src
-        let file = File::open("content/sample-content.csv").unwrap();
-        let reader = BufReader::new(file);
-
-        let structs: Vec<Entry> = deserialize(reader).unwrap();
-    }
-
-    #[test]
-    fn make_paried_list_verify() {
+    fn total_distance_verify() {
         let data = "\
 left_list,right_list
 3,4
@@ -120,5 +113,21 @@ left_list,right_list
         let structs: Vec<Entry> = deserialize(data.as_bytes()).unwrap();
         let total_distance = get_total_distance_from_raw_data(structs);
         assert_eq!(total_distance, 11);
+    }
+
+    #[test]
+    fn total_similarity_score_verify() {
+        let data = "\
+left_list,right_list
+3,4
+4,3
+2,5
+1,3
+3,9
+3,3
+";
+        let structs: Vec<Entry> = deserialize(data.as_bytes()).unwrap();
+        let total_similarity_score = get_total_similarity_score_from_raw_data(structs);
+        assert_eq!(total_similarity_score, 31);
     }
 }

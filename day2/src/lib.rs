@@ -39,7 +39,6 @@ fn is_safe(values: &Vec<i32>) -> bool {
 
 fn is_safe_loose(values: &Vec<i32>) -> bool {
     if is_safe(values) {
-        println!("{values:?}");
         return true;
     }
 
@@ -49,7 +48,12 @@ fn is_safe_loose(values: &Vec<i32>) -> bool {
         .iter()
         .map(|x| {
             let mut v = values.clone();
+
+            // Here I have the bug: if the same value happens twice and it's the wrong one
+            // I will remove twice the same instead of removing the other one.
             v.remove(v.iter().position(|y| *y == *x).expect("Element not found"));
+
+            println!("Inside closure: {v:?}");
 
             // now validate the remaining vector
             let safe = is_safe(&v);
@@ -63,7 +67,7 @@ fn is_safe_loose(values: &Vec<i32>) -> bool {
         .collect();
 
     if is_loosely_valid {
-        println!("{values:?}");
+        println!("{loose_attempts:?}");
     }
 
     is_loosely_valid
@@ -233,6 +237,7 @@ mod tests {
         let data = "\
 79 76 74 73 70 73";
         let values = get_values_from_line(data.trim());
+        println!("{values:?}");
         assert!(is_safe_loose(&values));
     }
 }

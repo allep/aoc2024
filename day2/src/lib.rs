@@ -40,6 +40,7 @@ fn is_safe(values: &Vec<i32>) -> bool {
 fn is_safe_loose(values: &Vec<i32>) -> bool {
     let is_unsafe = !is_safe(values);
 
+    let mut loose_attempts = Vec::new();
     let mut is_loosely_valid = false;
     let _: Vec<_> = values
         .iter()
@@ -47,16 +48,18 @@ fn is_safe_loose(values: &Vec<i32>) -> bool {
             let mut v = values.clone();
             v.remove(v.iter().position(|y| *y == *x).expect("Element not found"));
 
+            loose_attempts.push(v.clone());
+
             // now validate the remaining vector
             let safe = is_safe(&v);
-
-            if !safe && is_unsafe {
-                println!("Unsafe original: {values:?}, unsafe loose: {v:?}");
-            }
 
             is_loosely_valid |= safe;
         })
         .collect();
+
+    if !is_loosely_valid && is_unsafe {
+        println!("Found invalid: original = {values:?}\n    attempts = {loose_attempts:?}");
+    }
 
     is_loosely_valid
 }
@@ -218,5 +221,13 @@ mod tests {
         }
 
         assert_eq!(num_safe, 4);
+    }
+
+    #[test]
+    fn day2_validate_special_loose_cases() {
+        let data = "\
+75 78 81 82 80";
+        let values = get_values_from_line(data.trim());
+        assert!(is_safe_loose(&values));
     }
 }

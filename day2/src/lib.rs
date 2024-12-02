@@ -39,6 +39,7 @@ fn is_safe(values: &Vec<i32>) -> bool {
 
 fn is_safe_loose(values: &Vec<i32>) -> bool {
     if is_safe(values) {
+        println!("{values:?}");
         return true;
     }
 
@@ -61,8 +62,8 @@ fn is_safe_loose(values: &Vec<i32>) -> bool {
         })
         .collect();
 
-    if !is_loosely_valid {
-        println!("Found invalid: original = {values:?}\n    attempts = {loose_attempts:?}");
+    if is_loosely_valid {
+        println!("{values:?}");
     }
 
     is_loosely_valid
@@ -230,7 +231,7 @@ mod tests {
     #[test]
     fn day2_validate_special_loose_cases() {
         let data = "\
-75 78 81 82 80";
+79 76 74 73 70 73";
         let values = get_values_from_line(data.trim());
         assert!(is_safe_loose(&values));
     }

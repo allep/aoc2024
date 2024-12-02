@@ -46,15 +46,25 @@ fn get_values_from_line(line: &str) -> Vec<i32> {
 }
 
 fn is_safe(values: Vec<i32>) -> bool {
-    todo!();
+    are_not_oscillating(&values) && are_all_gradual(&values)
 }
 
 fn are_not_oscillating(values: &[i32]) -> bool {
-    todo!();
+    values.iter().is_sorted() || values.iter().rev().is_sorted()
 }
 
 fn are_all_gradual(values: &[i32]) -> bool {
-    todo!();
+    let mut all_gradual = true;
+    let _ = values
+        .windows(2)
+        .map(|w| {
+            let diff = (w[0] - w[1]).abs();
+            if diff > 2 {
+                all_gradual = false;
+            }
+        })
+        .collect::<Vec<_>>();
+    all_gradual
 }
 
 fn deserialize<T, R>(reader: R) -> Result<Vec<T>, Box<dyn std::error::Error>>
@@ -107,6 +117,24 @@ mod tests {
 
         let values = get_values_from_line(data);
         assert_eq!(values, vec![7, 6, 4, 2, 1]);
+    }
+
+    #[test]
+    fn day2_validate_not_oscillating() {
+        let data = vec![7, 6, 4, 2, 1];
+        assert!(are_not_oscillating(&data));
+    }
+
+    #[test]
+    fn day2_validate_oscillating() {
+        let data = vec![7, 6, 8, 3, 1];
+        assert!(!are_not_oscillating(&data));
+    }
+
+    #[test]
+    fn day2_validate_gradual() {
+        let data = vec![1, 2, 3, 4, 5];
+        assert!(are_all_gradual(&data));
     }
 
     #[test]

@@ -50,10 +50,12 @@ fn is_safe_loose(values: &Vec<i32>) -> bool {
             let mut v = values.clone();
             v.remove(v.iter().position(|y| *y == *x).expect("Element not found"));
 
-            loose_attempts.push(v.clone());
-
             // now validate the remaining vector
             let safe = is_safe(&v);
+
+            if !safe {
+                loose_attempts.push(v.clone());
+            }
 
             is_loosely_valid |= safe;
         })

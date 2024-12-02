@@ -38,7 +38,9 @@ fn is_safe(values: &Vec<i32>) -> bool {
 }
 
 fn is_safe_loose(values: &Vec<i32>) -> bool {
-    let is_unsafe = !is_safe(values);
+    if is_safe(values) {
+        return true;
+    }
 
     let mut loose_attempts = Vec::new();
     let mut is_loosely_valid = false;
@@ -57,7 +59,7 @@ fn is_safe_loose(values: &Vec<i32>) -> bool {
         })
         .collect();
 
-    if !is_loosely_valid && is_unsafe {
+    if !is_loosely_valid {
         println!("Found invalid: original = {values:?}\n    attempts = {loose_attempts:?}");
     }
 

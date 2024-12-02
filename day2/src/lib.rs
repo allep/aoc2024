@@ -1,34 +1,22 @@
 use csv::Reader;
 use serde::de::DeserializeOwned;
 use std::io::{self, Read};
-use std::{error::Error, fs::File, process};
-
-#[derive(Debug, serde::Deserialize)]
-struct Entry {
-    output_start: i32,
-    input_start: i32,
-    input_range: i32,
-}
+use std::{error::Error, fs, fs::File, process};
 
 #[derive(Debug)]
 pub struct Config {
-    first_file: String,
-    second_file: String,
+    puzzle_input: String,
 }
 
 impl Config {
     pub fn build(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 3 {
+        if args.len() < 2 {
             return Err("Not enough arguments");
         }
 
-        let first_file = args[1].clone();
-        let second_file = args[2].clone();
+        let puzzle_input = args[1].clone();
 
-        Ok(Config {
-            first_file,
-            second_file,
-        })
+        Ok(Config { puzzle_input })
     }
 }
 
@@ -47,6 +35,30 @@ fn get_values_from_line(line: &str) -> Vec<i32> {
 
 fn is_safe(values: &Vec<i32>) -> bool {
     are_not_oscillating(values) && are_all_gradual_changing(values)
+}
+
+fn is_safe_loose(values: &Vec<i32>) -> bool {
+    let is_unsafe = !is_safe(values);
+
+    let mut is_loosely_valid = false;
+    let _: Vec<_> = values
+        .iter()
+        .map(|x| {
+            let mut v = values.clone();
+            v.remove(v.iter().position(|y| *y == *x).expect("Element not found"));
+
+            // now validate the remaining vector
+            let safe = is_safe(&v);
+
+            if !safe && is_unsafe {
+                println!("Unsafe original: {values:?}, unsafe loose: {v:?}");
+            }
+
+            is_loosely_valid |= safe;
+        })
+        .collect();
+
+    is_loosely_valid
 }
 
 fn are_not_oscillating(values: &[i32]) -> bool {
@@ -82,9 +94,24 @@ where
     Ok(structs)
 }
 
-pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    // TODO
-    Ok(())
+pub fn run(config: Config) -> Result<(i32, i32), Box<dyn Error>> {
+    let content = fs::read_to_string(config.puzzle_input)?;
+
+    let lines = get_lines(&content);
+    let mut num_safe = 0;
+    let mut num_loosely_safe = 0;
+    for line in lines {
+        let values = get_values_from_line(line);
+        if is_safe(&values) {
+            num_safe += 1;
+        }
+
+        if is_safe_loose(&values) {
+            num_loosely_safe += 1;
+        }
+    }
+
+    Ok((num_safe, num_loosely_safe))
 }
 
 // Note on printing during tests:
@@ -166,5 +193,30 @@ mod tests {
         }
 
         assert_eq!(num_safe, 2);
+    }
+
+    #[test]
+    fn day2_validate_is_safe_loose_sample_input() {
+        let data = "\
+7 6 4 2 1
+1 2 7 8 9
+9 7 6 2 1
+1 3 2 4 5
+8 6 4 4 1
+1 3 6 7 9
+";
+        let lines = get_lines(data);
+        let mut num_safe = 0;
+        for line in lines {
+            let values = get_values_from_line(line);
+            if is_safe_loose(&values) {
+                println!("Found safe: {values:?}");
+                num_safe += 1;
+            } else {
+                println!("Found unsafe: {values:?}");
+            }
+        }
+
+        assert_eq!(num_safe, 4);
     }
 }

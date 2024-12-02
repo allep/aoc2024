@@ -37,6 +37,26 @@ fn get_lines(raw_input: &str) -> Vec<&str> {
     chunks
 }
 
+fn get_values_from_line(line: &str) -> Vec<i32> {
+    let chunks = line.trim().split_whitespace();
+    chunks
+        .into_iter()
+        .map(|x| x.parse::<i32>().unwrap())
+        .collect()
+}
+
+fn is_safe(values: Vec<i32>) -> bool {
+    todo!();
+}
+
+fn are_not_oscillating(values: &[i32]) -> bool {
+    todo!();
+}
+
+fn are_all_gradual(values: &[i32]) -> bool {
+    todo!();
+}
+
 fn deserialize<T, R>(reader: R) -> Result<Vec<T>, Box<dyn std::error::Error>>
 where
     T: std::fmt::Debug + DeserializeOwned,
@@ -79,5 +99,19 @@ mod tests {
 ";
         let lines = get_lines(data);
         assert_eq!(lines.len(), 6);
+    }
+
+    #[test]
+    fn day2_validate_parse_line() {
+        let data = "7 6 4 2 1";
+
+        let values = get_values_from_line(data);
+        assert_eq!(values, vec![7, 6, 4, 2, 1]);
+    }
+
+    #[test]
+    fn day2_validate_is_safe() {
+        let data = vec![7, 6, 4, 2, 1];
+        assert!(is_safe(data));
     }
 }

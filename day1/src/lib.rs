@@ -118,7 +118,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn total_distance_verify() {
+    fn day1_total_distance_verify() {
         let data = "\
 left_list,right_list
 3,4
@@ -134,7 +134,7 @@ left_list,right_list
     }
 
     #[test]
-    fn total_similarity_score_verify() {
+    fn day1_total_similarity_score_verify() {
         let data = "\
 left_list,right_list
 3,4

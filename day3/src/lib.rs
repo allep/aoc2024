@@ -87,14 +87,14 @@ fn get_line_chunks(line: &str) -> Vec<&str> {
     chunks
 }
 
-pub fn run(config: Config) -> Result<i32, Box<dyn Error>> {
+pub fn run(config: Config) -> Result<(i32, i32), Box<dyn Error>> {
     let content = fs::read_to_string(config.puzzle_input)?;
     let lines = get_lines(&content);
 
-    let re = Regex::new(r"(?<block>mul\(\d+,\d+\))").unwrap();
+    let re = Regex::new(r"(mul\(\d+,\d+\))").unwrap();
 
     let mut total = 0;
-    for line in lines {
+    for line in &lines {
         let mut muls = Vec::new();
         for mat in re.find_iter(line) {
             if let Some(values) = parse_mul(mat.as_str()) {
@@ -105,7 +105,24 @@ pub fn run(config: Config) -> Result<i32, Box<dyn Error>> {
         total += compute_sum_of_products(muls);
     }
 
-    Ok(total)
+    let mut total_filtered = 0;
+    for line in &lines {
+        let chunks = get_line_chunks(line);
+
+        let mut filtered_line = String::new();
+        chunks.iter().for_each(|&s| filtered_line.push_str(s));
+
+        let mut muls = Vec::new();
+        for mat in re.find_iter(&filtered_line) {
+            if let Some(values) = parse_mul(mat.as_str()) {
+                muls.push(values);
+            }
+        }
+
+        total_filtered += compute_sum_of_products(muls);
+    }
+
+    Ok((total, total_filtered))
 }
 
 // Note on printing during tests:

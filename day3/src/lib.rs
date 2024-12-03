@@ -55,6 +55,38 @@ fn parse_mul(mul: &str) -> Option<(i32, i32)> {
     None
 }
 
+fn get_line_chunks(line: &str) -> Vec<&str> {
+    let mut start = 0;
+    let mut end = line.len() - 1;
+
+    let mut chunks = Vec::new();
+    let mut sub_line = line;
+
+    let dont_tag = "don't()";
+    let do_tag = "do()";
+
+    loop {
+        if let Some(end) = sub_line.find(dont_tag) {
+            chunks.push(&sub_line[start..end]);
+
+            sub_line = &sub_line[end + dont_tag.len()..];
+
+            if let Some(start) = sub_line.find(do_tag) {
+                sub_line = &sub_line[start + do_tag.len()..];
+            } else {
+                // after a don't I will have either a do or EOL
+                break;
+            }
+        } else {
+            // after a do I will have either a don't or EOL
+            chunks.push(sub_line);
+            break;
+        }
+    }
+
+    chunks
+}
+
 pub fn run(config: Config) -> Result<i32, Box<dyn Error>> {
     let content = fs::read_to_string(config.puzzle_input)?;
     let lines = get_lines(&content);
@@ -111,18 +143,33 @@ xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))";
         let data = "\
 xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))";
 
-        let re = Regex::new(r"(?<do>do\(\)){0,1}.*(?<block>mul\(\d+,\d+\))").unwrap();
+        let re = Regex::new(r"(?<block>mul\(\d+,\d+\))").unwrap();
+
+        let chunks = get_line_chunks(data);
+
+        let mut filtered_line = String::new();
+        chunks.iter().for_each(|&s| filtered_line.push_str(s));
 
         let mut muls = Vec::new();
-        for mat in re.find_iter(data) {
+        for mat in re.find_iter(&filtered_line) {
+            println!("Match: {}", mat.as_str());
             if let Some(values) = parse_mul(mat.as_str()) {
                 muls.push(values);
             }
         }
 
-        assert_eq!(muls, vec![(2, 4), (5, 5), (11, 8), (8, 5)]);
+        assert_eq!(muls, vec![(2, 4), (8, 5)]);
 
         let total = compute_sum_of_products(muls);
-        assert_eq!(total, 161);
+        assert_eq!(total, 48);
+    }
+
+    #[test]
+    fn validate_get_line_chunks() {
+        let data = "\
+xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))";
+
+        let chunks = get_line_chunks(data);
+        assert_eq!(chunks, vec!["xmul(2,4)&mul[3,7]!^", "?mul(8,5))"]);
     }
 }

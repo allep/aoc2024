@@ -26,8 +26,33 @@ impl Config {
     }
 }
 
-fn parse_mul(mul: &str) -> (i32, i32) {
-    todo!();
+fn compute_sum_of_products(addends: Vec<(i32, i32)>) -> i32 {
+    let mut total = 0;
+    addends
+        .into_iter()
+        .for_each(|pair| total += pair.0 * pair.1);
+    total
+}
+
+fn parse_pair(pair: &str) -> (i32, i32) {
+    let parts: Vec<&str> = pair.split(',').collect();
+
+    assert_eq!(parts.len(), 2);
+
+    (
+        parts[0].parse::<i32>().unwrap(),
+        parts[1].parse::<i32>().unwrap(),
+    )
+}
+
+fn parse_mul(mul: &str) -> Option<(i32, i32)> {
+    let re = Regex::new(r"(?<values>\d+,\d+)").unwrap();
+
+    if let Some(mat) = re.find(mul) {
+        return Some(parse_pair(mat.as_str()));
+    }
+
+    None
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
@@ -56,10 +81,14 @@ xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))";
 
         let mut muls = Vec::new();
         for mat in re.find_iter(data) {
-            println!("Match trovato: {}", mat.as_str());
-            muls.push(parse_mul(mat.as_str()));
+            if let Some(values) = parse_mul(mat.as_str()) {
+                muls.push(values);
+            }
         }
 
         assert_eq!(muls, vec![(2, 4), (5, 5), (11, 8), (8, 5)]);
+
+        let total = compute_sum_of_products(muls);
+        assert_eq!(total, 161);
     }
 }

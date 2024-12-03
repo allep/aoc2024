@@ -105,4 +105,24 @@ xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))";
         let total = compute_sum_of_products(muls);
         assert_eq!(total, 161);
     }
+
+    #[test]
+    fn parse_sample_test_part2() {
+        let data = "\
+xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))";
+
+        let re = Regex::new(r"(?<do>do\(\)){0,1}.*(?<block>mul\(\d+,\d+\))").unwrap();
+
+        let mut muls = Vec::new();
+        for mat in re.find_iter(data) {
+            if let Some(values) = parse_mul(mat.as_str()) {
+                muls.push(values);
+            }
+        }
+
+        assert_eq!(muls, vec![(2, 4), (5, 5), (11, 8), (8, 5)]);
+
+        let total = compute_sum_of_products(muls);
+        assert_eq!(total, 161);
+    }
 }

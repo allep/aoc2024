@@ -2,28 +2,28 @@ use csv::Reader;
 use regex::Regex;
 use serde::de::DeserializeOwned;
 use std::io::{self, Read};
-use std::{error::Error, fs::File, process};
+use std::{error::Error, fs, fs::File, process};
 
 #[derive(Debug)]
 pub struct Config {
-    first_file: String,
-    second_file: String,
+    puzzle_input: String,
 }
 
 impl Config {
     pub fn build(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 3 {
+        if args.len() < 2 {
             return Err("Not enough arguments");
         }
 
-        let first_file = args[1].clone();
-        let second_file = args[2].clone();
+        let puzzle_input = args[1].clone();
 
-        Ok(Config {
-            first_file,
-            second_file,
-        })
+        Ok(Config { puzzle_input })
     }
+}
+
+fn get_lines(raw_input: &str) -> Vec<&str> {
+    let chunks: Vec<&str> = raw_input.trim().split("\n").collect();
+    chunks
 }
 
 fn compute_sum_of_products(addends: Vec<(i32, i32)>) -> i32 {
@@ -55,11 +55,25 @@ fn parse_mul(mul: &str) -> Option<(i32, i32)> {
     None
 }
 
-pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    // TODO
-    // 1. get lines
-    // 2.    for each line
-    Ok(())
+pub fn run(config: Config) -> Result<i32, Box<dyn Error>> {
+    let content = fs::read_to_string(config.puzzle_input)?;
+    let lines = get_lines(&content);
+
+    let re = Regex::new(r"(?<block>mul\(\d+,\d+\))").unwrap();
+
+    let mut total = 0;
+    for line in lines {
+        let mut muls = Vec::new();
+        for mat in re.find_iter(line) {
+            if let Some(values) = parse_mul(mat.as_str()) {
+                muls.push(values);
+            }
+        }
+
+        total += compute_sum_of_products(muls);
+    }
+
+    Ok(total)
 }
 
 // Note on printing during tests:

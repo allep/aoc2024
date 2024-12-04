@@ -32,6 +32,51 @@ impl Config {
     }
 }
 
+#[derive(Debug)]
+struct WordSearch {
+    lines: Vec<String>,
+}
+
+fn get_lines(raw_input: &str) -> Vec<&str> {
+    let chunks: Vec<&str> = raw_input.trim().split("\n").collect();
+    chunks
+}
+
+impl WordSearch {
+    fn build(raw_content: &str) -> Result<WordSearch, &'static str> {
+        let lines: Vec<String> = raw_content
+            .trim()
+            .split("\n")
+            .map(|s| s.to_string())
+            .collect();
+
+        Ok(WordSearch { lines })
+    }
+
+    fn compute(&self, word: &str) -> u32 {
+        let key_letters = word.as_bytes();
+        let positions = self.get_positions(key_letters[0] as char);
+        for pos in positions {
+            println!("Position found: ({}, {})", pos.0, pos.1);
+        }
+
+        0
+    }
+
+    fn get_positions(&self, letter: char) -> Vec<(usize, usize)> {
+        let mut positions = Vec::new();
+        self.lines
+            .iter()
+            .enumerate()
+            .for_each(|(line_number, &ref line)| {
+                line.match_indices(letter)
+                    .for_each(|(column, &ref c)| positions.push((line_number, column)));
+            });
+
+        positions
+    }
+}
+
 fn deserialize<T, R>(reader: R) -> Result<Vec<T>, Box<dyn std::error::Error>>
 where
     T: std::fmt::Debug + DeserializeOwned,
@@ -47,8 +92,9 @@ where
     Ok(structs)
 }
 
-fn compute_total_xmas(raw_data: &str) -> i32 {
-    todo!();
+fn compute_total_xmas(raw_data: &str) -> u32 {
+    let word_search = WordSearch::build(raw_data).unwrap();
+    word_search.compute("XMAS")
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {

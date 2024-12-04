@@ -47,6 +47,10 @@ where
     Ok(structs)
 }
 
+fn compute_total_xmas(raw_data: &str) -> i32 {
+    todo!();
+}
+
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     // TODO
     Ok(())
@@ -63,24 +67,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn proper_deserialize_from_slice_to_entry() {
-        // Note: must be without spaces
+    fn part1_logic_test() {
         let data = "\
-output_start,input_start,input_range
-50,98,2
-52,50,48
-";
+MMMSXXMASM
+MSAMXMSMSA
+AMXSXMAAMM
+MSAMASMSMX
+XMASAMXAMM
+XXAMMXXAMA
+SMSMSASXSS
+SAXAMASAAA
+MAMMMXMMMM
+MXMXAXMASX";
 
-        let structs: Vec<Entry> = deserialize(data.as_bytes()).unwrap();
-    }
-
-    #[test]
-    fn proper_deserialize_from_file_to_entry() {
-        // Note: must be without spaces and by default the base directory should be at the same
-        // level of src
-        let file = File::open("content/sample-content.csv").unwrap();
-        let reader = BufReader::new(file);
-
-        let structs: Vec<Entry> = deserialize(reader).unwrap();
+        assert_eq!(compute_total_xmas(data), 18);
     }
 }

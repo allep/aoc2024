@@ -38,7 +38,7 @@ struct WordSearch {
     lines: Vec<String>,
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 struct CandidateWord {
     letters: Vec<(usize, usize)>,
 }
@@ -67,6 +67,10 @@ impl WordSearch {
         }
 
         let candidates = self.get_candidates(positions, word);
+
+        for c in &candidates {
+            println!("Found candidate: {c:?}");
+        }
 
         candidates.len().try_into().unwrap()
     }
@@ -102,117 +106,207 @@ impl WordSearch {
             // upper vertical
             if pos.1 >= length {
                 let mut letter_pos = Vec::new();
+                let mut success = true;
                 for ix in 0..length {
-                    letter_pos.push((pos.0, pos.1 - ix));
+                    let p = (pos.0, pos.1 - ix);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
                 }
 
-                let candidate = CandidateWord {
-                    letters: letter_pos,
-                };
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
 
-                candidates.insert(candidate);
+                    candidates.insert(candidate);
+                }
             }
 
             // first diagonal
             if pos.0 <= line_length - length && pos.1 >= length {
                 let mut letter_pos = Vec::new();
+                let mut success = true;
                 for ix in 0..length {
-                    letter_pos.push((pos.0 + ix, pos.1 - ix));
+                    let p = (pos.0 + ix, pos.1 - ix);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
                 }
 
-                let candidate = CandidateWord {
-                    letters: letter_pos,
-                };
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
 
-                candidates.insert(candidate);
+                    candidates.insert(candidate);
+                }
             }
 
             // right horizontal
             if pos.0 <= line_length - length {
                 let mut letter_pos = Vec::new();
+                let mut success = true;
                 for ix in 0..length {
                     letter_pos.push((pos.0 + ix, pos.1));
+                    let p = (pos.0 + ix, pos.1);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
                 }
 
-                let candidate = CandidateWord {
-                    letters: letter_pos,
-                };
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
 
-                candidates.insert(candidate);
+                    candidates.insert(candidate);
+                }
             }
 
             // second diagonal
             if pos.0 <= line_length - length && pos.1 <= num_lines - length {
                 let mut letter_pos = Vec::new();
+                let mut success = true;
                 for ix in 0..length {
-                    letter_pos.push((pos.0 + ix, pos.1 + ix));
+                    let p = (pos.0 + ix, pos.1 + ix);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
                 }
 
-                let candidate = CandidateWord {
-                    letters: letter_pos,
-                };
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
 
-                candidates.insert(candidate);
+                    candidates.insert(candidate);
+                }
             }
 
             // down vertical
             if pos.1 <= num_lines - length {
                 let mut letter_pos = Vec::new();
+                let mut success = true;
                 for ix in 0..length {
-                    letter_pos.push((pos.0, pos.1 + ix));
+                    let p = (pos.0, pos.1 + ix);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
                 }
 
-                let candidate = CandidateWord {
-                    letters: letter_pos,
-                };
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
 
-                candidates.insert(candidate);
+                    candidates.insert(candidate);
+                }
             }
 
             // third diagonal
             if pos.0 >= length && pos.1 <= num_lines - length {
                 let mut letter_pos = Vec::new();
+                let mut success = true;
                 for ix in 0..length {
-                    letter_pos.push((pos.0 - ix, pos.1 + ix));
+                    let p = (pos.0 - ix, pos.1 + ix);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
                 }
 
-                let candidate = CandidateWord {
-                    letters: letter_pos,
-                };
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
 
-                candidates.insert(candidate);
+                    candidates.insert(candidate);
+                }
             }
 
             // left horizontal
             if pos.0 >= length {
                 let mut letter_pos = Vec::new();
+                let mut success = true;
                 for ix in 0..length {
-                    letter_pos.push((pos.0 - ix, pos.1));
+                    let p = (pos.0 - ix, pos.1);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
                 }
 
-                let candidate = CandidateWord {
-                    letters: letter_pos,
-                };
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
 
-                candidates.insert(candidate);
+                    candidates.insert(candidate);
+                }
             }
 
             // fourth diagonal
             if pos.0 >= length && pos.1 >= length {
                 let mut letter_pos = Vec::new();
+                let mut success = true;
                 for ix in 0..length {
-                    letter_pos.push((pos.0 - ix, pos.1 - ix));
+                    let p = (pos.0 - ix, pos.1 - ix);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
                 }
 
-                let candidate = CandidateWord {
-                    letters: letter_pos,
-                };
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
 
-                candidates.insert(candidate);
+                    candidates.insert(candidate);
+                }
             }
         }
 
         candidates
+    }
+
+    fn get_letter(&self, position: (usize, usize)) -> char {
+        let num_lines = self.lines.len();
+        let line_length = self.lines[0].len();
+        assert!(position.0 < line_length);
+        assert!(position.1 < num_lines);
+
+        self.lines[position.1].as_bytes()[position.0] as char
     }
 }
 

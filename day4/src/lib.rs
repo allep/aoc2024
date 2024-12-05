@@ -1,5 +1,6 @@
 use csv::Reader;
 use serde::de::DeserializeOwned;
+use std::collections::HashSet;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
 
@@ -37,6 +38,11 @@ struct WordSearch {
     lines: Vec<String>,
 }
 
+#[derive(PartialEq, Eq, Hash)]
+struct CandidateWord {
+    letters: Vec<(usize, usize)>,
+}
+
 fn get_lines(raw_input: &str) -> Vec<&str> {
     let chunks: Vec<&str> = raw_input.trim().split("\n").collect();
     chunks
@@ -56,11 +62,13 @@ impl WordSearch {
     fn compute(&self, word: &str) -> u32 {
         let key_letters = word.as_bytes();
         let positions = self.get_positions(key_letters[0] as char);
-        for pos in positions {
+        for pos in &positions {
             println!("Position found: ({}, {})", pos.0, pos.1);
         }
 
-        0
+        let candidates = self.get_candidates(positions, word);
+
+        candidates.len().try_into().unwrap()
     }
 
     fn get_positions(&self, letter: char) -> Vec<(usize, usize)> {
@@ -74,6 +82,137 @@ impl WordSearch {
             });
 
         positions
+    }
+
+    fn get_candidates(&self, positions: Vec<(usize, usize)>, word: &str) -> HashSet<CandidateWord> {
+        let key_letters = word.as_bytes();
+        let length = word.len();
+        let num_lines = self.lines.len();
+
+        assert!(num_lines > 0);
+
+        let line_length = self.lines[0].len();
+
+        assert!(line_length > 0);
+
+        let mut candidates = HashSet::new();
+        for pos in positions {
+            // we have up to 8 candidates
+
+            // upper vertical
+            if pos.1 >= length {
+                let mut letter_pos = Vec::new();
+                for ix in 0..length {
+                    letter_pos.push((pos.0, pos.1 - ix));
+                }
+
+                let candidate = CandidateWord {
+                    letters: letter_pos,
+                };
+
+                candidates.insert(candidate);
+            }
+
+            // first diagonal
+            if pos.0 <= line_length - length && pos.1 >= length {
+                let mut letter_pos = Vec::new();
+                for ix in 0..length {
+                    letter_pos.push((pos.0 + ix, pos.1 - ix));
+                }
+
+                let candidate = CandidateWord {
+                    letters: letter_pos,
+                };
+
+                candidates.insert(candidate);
+            }
+
+            // right horizontal
+            if pos.0 <= line_length - length {
+                let mut letter_pos = Vec::new();
+                for ix in 0..length {
+                    letter_pos.push((pos.0 + ix, pos.1));
+                }
+
+                let candidate = CandidateWord {
+                    letters: letter_pos,
+                };
+
+                candidates.insert(candidate);
+            }
+
+            // second diagonal
+            if pos.0 <= line_length - length && pos.1 <= num_lines - length {
+                let mut letter_pos = Vec::new();
+                for ix in 0..length {
+                    letter_pos.push((pos.0 + ix, pos.1 + ix));
+                }
+
+                let candidate = CandidateWord {
+                    letters: letter_pos,
+                };
+
+                candidates.insert(candidate);
+            }
+
+            // down vertical
+            if pos.1 <= num_lines - length {
+                let mut letter_pos = Vec::new();
+                for ix in 0..length {
+                    letter_pos.push((pos.0, pos.1 + ix));
+                }
+
+                let candidate = CandidateWord {
+                    letters: letter_pos,
+                };
+
+                candidates.insert(candidate);
+            }
+
+            // third diagonal
+            if pos.0 >= length && pos.1 <= num_lines - length {
+                let mut letter_pos = Vec::new();
+                for ix in 0..length {
+                    letter_pos.push((pos.0 - ix, pos.1 + ix));
+                }
+
+                let candidate = CandidateWord {
+                    letters: letter_pos,
+                };
+
+                candidates.insert(candidate);
+            }
+
+            // left horizontal
+            if pos.0 >= length {
+                let mut letter_pos = Vec::new();
+                for ix in 0..length {
+                    letter_pos.push((pos.0 - ix, pos.1));
+                }
+
+                let candidate = CandidateWord {
+                    letters: letter_pos,
+                };
+
+                candidates.insert(candidate);
+            }
+
+            // fourth diagonal
+            if pos.0 >= length && pos.1 >= length {
+                let mut letter_pos = Vec::new();
+                for ix in 0..length {
+                    letter_pos.push((pos.0 - ix, pos.1 - ix));
+                }
+
+                let candidate = CandidateWord {
+                    letters: letter_pos,
+                };
+
+                candidates.insert(candidate);
+            }
+        }
+
+        candidates
     }
 }
 

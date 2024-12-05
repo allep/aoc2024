@@ -476,11 +476,12 @@ fn compute_total_xmas_part2(raw_data: &str) -> u32 {
     word_search.compute_cross_mas("MAS")
 }
 
-pub fn run(config: Config) -> Result<u32, Box<dyn Error>> {
+pub fn run(config: Config) -> Result<(u32, u32), Box<dyn Error>> {
     let content = fs::read_to_string(config.puzzle_input)?;
     let total = compute_total_xmas(&content);
+    let total_cross_mas = compute_total_xmas_part2(&content);
 
-    Ok(total)
+    Ok((total, total_cross_mas))
 }
 
 // Note on printing during tests:

@@ -2,34 +2,22 @@ use csv::Reader;
 use serde::de::DeserializeOwned;
 use std::collections::HashSet;
 use std::io::{self, Read};
-use std::{error::Error, fs::File, process};
-
-#[derive(Debug, serde::Deserialize)]
-struct Entry {
-    output_start: i32,
-    input_start: i32,
-    input_range: i32,
-}
+use std::{error::Error, fs, fs::File, process};
 
 #[derive(Debug)]
 pub struct Config {
-    first_file: String,
-    second_file: String,
+    puzzle_input: String,
 }
 
 impl Config {
     pub fn build(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 3 {
+        if args.len() < 2 {
             return Err("Not enough arguments");
         }
 
-        let first_file = args[1].clone();
-        let second_file = args[2].clone();
+        let puzzle_input = args[1].clone();
 
-        Ok(Config {
-            first_file,
-            second_file,
-        })
+        Ok(Config { puzzle_input })
     }
 }
 
@@ -63,15 +51,7 @@ impl WordSearch {
         let key_letters = word.as_bytes();
         let c = key_letters[0] as char;
         let positions = self.get_positions(c);
-        for pos in &positions {
-            println!("Position found for char {c}: ({}, {})", pos.0, pos.1);
-        }
-
         let candidates = self.get_candidates(positions, word);
-
-        for c in &candidates {
-            println!("Found candidate: {c:?}");
-        }
 
         candidates.len().try_into().unwrap()
     }
@@ -334,9 +314,11 @@ fn compute_total_xmas(raw_data: &str) -> u32 {
     word_search.compute("XMAS")
 }
 
-pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    // TODO
-    Ok(())
+pub fn run(config: Config) -> Result<u32, Box<dyn Error>> {
+    let content = fs::read_to_string(config.puzzle_input)?;
+    let total = compute_total_xmas(&content);
+
+    Ok(total)
 }
 
 // Note on printing during tests:

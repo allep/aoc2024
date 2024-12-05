@@ -61,9 +61,10 @@ impl WordSearch {
 
     fn compute(&self, word: &str) -> u32 {
         let key_letters = word.as_bytes();
-        let positions = self.get_positions(key_letters[0] as char);
+        let c = key_letters[0] as char;
+        let positions = self.get_positions(c);
         for pos in &positions {
-            println!("Position found: ({}, {})", pos.0, pos.1);
+            println!("Position found for char {c}: ({}, {})", pos.0, pos.1);
         }
 
         let candidates = self.get_candidates(positions, word);
@@ -177,16 +178,13 @@ impl WordSearch {
             }
 
             // second diagonal
-            println!("Attempt to second diagonal case for pos {pos:?}");
             if pos.0 <= num_lines - length && pos.1 <= line_length - length {
-                println!("Second diagonal case");
                 let mut letter_pos = Vec::new();
                 let mut success = true;
                 for ix in 0..length {
                     let p = (pos.0 + ix, pos.1 + ix);
                     let c = key_letters[ix] as char;
                     let r = self.get_letter(p);
-                    println!("Found {c} in position {p:?} - reference {r}");
                     if c == r {
                         letter_pos.push(p);
                     } else {

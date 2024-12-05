@@ -100,12 +100,14 @@ impl WordSearch {
 
         assert!(line_length > 0);
 
+        let max_decrement = length - 1;
+
         let mut candidates = HashSet::new();
         for pos in positions {
             // we have up to 8 candidates
 
             // upper vertical
-            if pos.0 >= length {
+            if pos.0 >= max_decrement {
                 let mut letter_pos = Vec::new();
                 let mut success = true;
                 for ix in 0..length {
@@ -129,7 +131,7 @@ impl WordSearch {
             }
 
             // first diagonal
-            if pos.0 >= length && pos.1 <= line_length - length {
+            if pos.0 >= max_decrement && pos.1 <= line_length - length {
                 let mut letter_pos = Vec::new();
                 let mut success = true;
                 for ix in 0..length {
@@ -227,7 +229,7 @@ impl WordSearch {
             }
 
             // third diagonal
-            if pos.0 <= num_lines - length && pos.1 >= length {
+            if pos.0 <= num_lines - length && pos.1 >= max_decrement {
                 let mut letter_pos = Vec::new();
                 let mut success = true;
                 for ix in 0..length {
@@ -251,7 +253,7 @@ impl WordSearch {
             }
 
             // left horizontal
-            if pos.1 >= length {
+            if pos.1 >= max_decrement {
                 let mut letter_pos = Vec::new();
                 let mut success = true;
                 for ix in 0..length {
@@ -275,7 +277,7 @@ impl WordSearch {
             }
 
             // fourth diagonal
-            if pos.0 >= length && pos.1 >= length {
+            if pos.0 >= max_decrement && pos.1 >= max_decrement {
                 let mut letter_pos = Vec::new();
                 let mut success = true;
                 for ix in 0..length {

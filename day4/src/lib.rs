@@ -104,11 +104,11 @@ impl WordSearch {
             // we have up to 8 candidates
 
             // upper vertical
-            if pos.1 >= length {
+            if pos.0 >= length {
                 let mut letter_pos = Vec::new();
                 let mut success = true;
                 for ix in 0..length {
-                    let p = (pos.0, pos.1 - ix);
+                    let p = (pos.0 - ix, pos.1);
                     let c = key_letters[ix] as char;
                     if c == self.get_letter(p) {
                         letter_pos.push(p);
@@ -128,104 +128,7 @@ impl WordSearch {
             }
 
             // first diagonal
-            if pos.0 <= line_length - length && pos.1 >= length {
-                let mut letter_pos = Vec::new();
-                let mut success = true;
-                for ix in 0..length {
-                    let p = (pos.0 + ix, pos.1 - ix);
-                    let c = key_letters[ix] as char;
-                    if c == self.get_letter(p) {
-                        letter_pos.push(p);
-                    } else {
-                        success = false;
-                        break;
-                    }
-                }
-
-                if success {
-                    let candidate = CandidateWord {
-                        letters: letter_pos,
-                    };
-
-                    candidates.insert(candidate);
-                }
-            }
-
-            // right horizontal
-            if pos.0 <= line_length - length {
-                let mut letter_pos = Vec::new();
-                let mut success = true;
-                for ix in 0..length {
-                    letter_pos.push((pos.0 + ix, pos.1));
-                    let p = (pos.0 + ix, pos.1);
-                    let c = key_letters[ix] as char;
-                    if c == self.get_letter(p) {
-                        letter_pos.push(p);
-                    } else {
-                        success = false;
-                        break;
-                    }
-                }
-
-                if success {
-                    let candidate = CandidateWord {
-                        letters: letter_pos,
-                    };
-
-                    candidates.insert(candidate);
-                }
-            }
-
-            // second diagonal
-            if pos.0 <= line_length - length && pos.1 <= num_lines - length {
-                let mut letter_pos = Vec::new();
-                let mut success = true;
-                for ix in 0..length {
-                    let p = (pos.0 + ix, pos.1 + ix);
-                    let c = key_letters[ix] as char;
-                    if c == self.get_letter(p) {
-                        letter_pos.push(p);
-                    } else {
-                        success = false;
-                        break;
-                    }
-                }
-
-                if success {
-                    let candidate = CandidateWord {
-                        letters: letter_pos,
-                    };
-
-                    candidates.insert(candidate);
-                }
-            }
-
-            // down vertical
-            if pos.1 <= num_lines - length {
-                let mut letter_pos = Vec::new();
-                let mut success = true;
-                for ix in 0..length {
-                    let p = (pos.0, pos.1 + ix);
-                    let c = key_letters[ix] as char;
-                    if c == self.get_letter(p) {
-                        letter_pos.push(p);
-                    } else {
-                        success = false;
-                        break;
-                    }
-                }
-
-                if success {
-                    let candidate = CandidateWord {
-                        letters: letter_pos,
-                    };
-
-                    candidates.insert(candidate);
-                }
-            }
-
-            // third diagonal
-            if pos.0 >= length && pos.1 <= num_lines - length {
+            if pos.0 >= length && pos.1 <= line_length - length {
                 let mut letter_pos = Vec::new();
                 let mut success = true;
                 for ix in 0..length {
@@ -248,12 +151,113 @@ impl WordSearch {
                 }
             }
 
-            // left horizontal
-            if pos.0 >= length {
+            // right horizontal
+            if pos.1 <= line_length - length {
                 let mut letter_pos = Vec::new();
                 let mut success = true;
                 for ix in 0..length {
-                    let p = (pos.0 - ix, pos.1);
+                    let p = (pos.0, pos.1 + ix);
+                    let c = key_letters[ix] as char;
+                    let r = self.get_letter(p);
+                    if c == r {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
+                }
+
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
+
+                    candidates.insert(candidate);
+                }
+            }
+
+            // second diagonal
+            println!("Attempt to second diagonal case for pos {pos:?}");
+            if pos.0 <= num_lines - length && pos.1 <= line_length - length {
+                println!("Second diagonal case");
+                let mut letter_pos = Vec::new();
+                let mut success = true;
+                for ix in 0..length {
+                    let p = (pos.0 + ix, pos.1 + ix);
+                    let c = key_letters[ix] as char;
+                    let r = self.get_letter(p);
+                    println!("Found {c} in position {p:?} - reference {r}");
+                    if c == r {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
+                }
+
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
+
+                    candidates.insert(candidate);
+                }
+            }
+
+            // down vertical
+            if pos.0 <= num_lines - length {
+                let mut letter_pos = Vec::new();
+                let mut success = true;
+                for ix in 0..length {
+                    let p = (pos.0 + ix, pos.1);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
+                }
+
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
+
+                    candidates.insert(candidate);
+                }
+            }
+
+            // third diagonal
+            if pos.0 <= num_lines - length && pos.1 >= length {
+                let mut letter_pos = Vec::new();
+                let mut success = true;
+                for ix in 0..length {
+                    let p = (pos.0 + ix, pos.1 - ix);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
+                }
+
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
+
+                    candidates.insert(candidate);
+                }
+            }
+
+            // left horizontal
+            if pos.1 >= length {
+                let mut letter_pos = Vec::new();
+                let mut success = true;
+                for ix in 0..length {
+                    let p = (pos.0, pos.1 - ix);
                     let c = key_letters[ix] as char;
                     if c == self.get_letter(p) {
                         letter_pos.push(p);
@@ -303,10 +307,10 @@ impl WordSearch {
     fn get_letter(&self, position: (usize, usize)) -> char {
         let num_lines = self.lines.len();
         let line_length = self.lines[0].len();
-        assert!(position.0 < line_length);
-        assert!(position.1 < num_lines);
+        assert!(position.0 < num_lines, "x = {}", position.0);
+        assert!(position.1 < line_length, "y = {}", position.1);
 
-        self.lines[position.1].as_bytes()[position.0] as char
+        self.lines[position.0].as_bytes()[position.1] as char
     }
 }
 
@@ -344,6 +348,17 @@ mod tests {
     use io::BufReader;
 
     use super::*;
+
+    #[test]
+    fn part1_simplified_logic_test() {
+        let data = "\
+..X...
+.SAMX.
+.A..A.
+XMAS.S
+.X....";
+        assert_eq!(compute_total_xmas(data), 4);
+    }
 
     #[test]
     fn part1_logic_test() {

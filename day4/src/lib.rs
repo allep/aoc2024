@@ -1,5 +1,6 @@
 use csv::Reader;
 use serde::de::DeserializeOwned;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::{self, Read};
 use std::{error::Error, fs, fs::File, process};
@@ -54,6 +55,40 @@ impl WordSearch {
         let candidates = self.get_candidates(positions, word);
 
         candidates.len().try_into().unwrap()
+    }
+
+    fn compute_cross_mas(&self, word: &str) -> u32 {
+        let key_letters = word.as_bytes();
+        let c = key_letters[0] as char;
+        let positions = self.get_positions(c);
+        let candidates = self.get_cross_candidates(positions, word);
+
+        let cross_total = self.compute_cross_total_from_candidates(candidates);
+        cross_total
+    }
+
+    fn compute_cross_total_from_candidates(&self, candidates: HashSet<CandidateWord>) -> u32 {
+        let mut cross_candidates = HashMap::new();
+
+        for c in &candidates {
+            assert_eq!(c.letters.len(), 3);
+
+            cross_candidates
+                .entry(c.letters[1])
+                .and_modify(|count| *count += 1)
+                .or_insert(1);
+        }
+
+        let mut total: u32 = 0;
+        for c in &cross_candidates {
+            assert!(*c.1 <= 2);
+
+            if *c.1 == 2 {
+                total += 1;
+            }
+        }
+
+        total
     }
 
     fn get_positions(&self, letter: char) -> Vec<(usize, usize)> {
@@ -284,6 +319,128 @@ impl WordSearch {
         candidates
     }
 
+    fn get_cross_candidates(
+        &self,
+        positions: Vec<(usize, usize)>,
+        word: &str,
+    ) -> HashSet<CandidateWord> {
+        let key_letters = word.as_bytes();
+        let length = word.len();
+        let num_lines = self.lines.len();
+
+        assert!(num_lines > 0);
+
+        let line_length = self.lines[0].len();
+
+        assert!(line_length > 0);
+
+        let max_decrement = length - 1;
+
+        let mut candidates = HashSet::new();
+        for pos in positions {
+            // we have up to 4 candidates
+
+            // first diagonal
+            if pos.0 >= max_decrement && pos.1 <= line_length - length {
+                let mut letter_pos = Vec::new();
+                let mut success = true;
+                for ix in 0..length {
+                    let p = (pos.0 - ix, pos.1 + ix);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
+                }
+
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
+
+                    candidates.insert(candidate);
+                }
+            }
+
+            // second diagonal
+            if pos.0 <= num_lines - length && pos.1 <= line_length - length {
+                let mut letter_pos = Vec::new();
+                let mut success = true;
+                for ix in 0..length {
+                    let p = (pos.0 + ix, pos.1 + ix);
+                    let c = key_letters[ix] as char;
+                    let r = self.get_letter(p);
+                    if c == r {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
+                }
+
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
+
+                    candidates.insert(candidate);
+                }
+            }
+
+            // third diagonal
+            if pos.0 <= num_lines - length && pos.1 >= max_decrement {
+                let mut letter_pos = Vec::new();
+                let mut success = true;
+                for ix in 0..length {
+                    let p = (pos.0 + ix, pos.1 - ix);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
+                }
+
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
+
+                    candidates.insert(candidate);
+                }
+            }
+
+            // fourth diagonal
+            if pos.0 >= max_decrement && pos.1 >= max_decrement {
+                let mut letter_pos = Vec::new();
+                let mut success = true;
+                for ix in 0..length {
+                    let p = (pos.0 - ix, pos.1 - ix);
+                    let c = key_letters[ix] as char;
+                    if c == self.get_letter(p) {
+                        letter_pos.push(p);
+                    } else {
+                        success = false;
+                        break;
+                    }
+                }
+
+                if success {
+                    let candidate = CandidateWord {
+                        letters: letter_pos,
+                    };
+
+                    candidates.insert(candidate);
+                }
+            }
+        }
+
+        candidates
+    }
+
     fn get_letter(&self, position: (usize, usize)) -> char {
         let num_lines = self.lines.len();
         let line_length = self.lines[0].len();
@@ -312,6 +469,11 @@ where
 fn compute_total_xmas(raw_data: &str) -> u32 {
     let word_search = WordSearch::build(raw_data).unwrap();
     word_search.compute("XMAS")
+}
+
+fn compute_total_xmas_part2(raw_data: &str) -> u32 {
+    let word_search = WordSearch::build(raw_data).unwrap();
+    word_search.compute_cross_mas("MAS")
 }
 
 pub fn run(config: Config) -> Result<u32, Box<dyn Error>> {
@@ -357,5 +519,22 @@ MAMMMXMMMM
 MXMXAXMASX";
 
         assert_eq!(compute_total_xmas(data), 18);
+    }
+
+    #[test]
+    fn part2_logic_test() {
+        let data = "\
+.M.S......
+..A..MSMS.
+.M.S.MAA..
+..A.ASMSM.
+.M.S.M....
+..........
+S.S.S.S.S.
+.A.A.A.A..
+M.M.M.M.M.
+..........";
+
+        assert_eq!(compute_total_xmas_part2(data), 9);
     }
 }

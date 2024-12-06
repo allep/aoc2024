@@ -36,7 +36,7 @@ struct LevelMap {
 }
 
 impl LevelMap {
-    fn make(raw_data: &str, guard: char) -> Result<LevelMap, &'static str> {
+    fn build(raw_data: &str, guard: char) -> Result<LevelMap, &'static str> {
         let lines: Vec<&str> = raw_data.trim().split("\n").collect();
         let y_max = lines.len();
         if y_max == 0 {
@@ -82,7 +82,7 @@ impl LevelMap {
 }
 
 fn compute_total_unique_positions(raw_data: &str, guard: char) -> u32 {
-    let map = LevelMap::make(raw_data, guard).unwrap();
+    let map = LevelMap::build(raw_data, guard).unwrap();
     todo!();
 }
 
@@ -103,6 +103,24 @@ mod tests {
     use io::BufReader;
 
     use super::*;
+
+    #[test]
+    fn part1_level_map_test() {
+        let data = "\
+....#.....
+.........#
+..........
+..#.......
+.......#..
+..........
+.#..^.....
+........#.
+#.........
+......#...";
+
+        let level_map = LevelMap::build(data, '^').unwrap();
+        assert_eq!(level_map.start_position, (4, 6));
+    }
 
     #[test]
     fn part1_logic_test() {

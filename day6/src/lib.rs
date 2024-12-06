@@ -166,9 +166,6 @@ impl LevelMap {
 
                     let pos_and_dir = ((next_pos), next_direction);
                     if self.unique_positions_and_directions.contains(&pos_and_dir) {
-                        if let Some(op) = self.obstacle {
-                            println!("Found loop for obstacle in position {:?}", op);
-                        }
                         self.loop_found = true;
                     } else {
                         self.unique_positions_and_directions.insert(pos_and_dir);
@@ -240,12 +237,13 @@ fn compute_total_obstacles_positions(raw_data: &str, guard: char) -> u32 {
     num_obstacles
 }
 
-pub fn run(config: Config) -> Result<(u32), Box<dyn Error>> {
+pub fn run(config: Config) -> Result<(u32, u32), Box<dyn Error>> {
     let content = fs::read_to_string(config.puzzle_input)?;
     let guard = config.guard;
     let total = compute_total_unique_positions(&content, guard);
+    let total_obstacles = compute_total_obstacles_positions(&content, guard);
 
-    Ok((total))
+    Ok((total, total_obstacles))
 }
 
 // Note on printing during tests:

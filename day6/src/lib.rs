@@ -28,11 +28,33 @@ impl Config {
     }
 }
 
+#[derive(Debug, PartialEq)]
+enum GuardDirection {
+    Up,
+    Right,
+    Down,
+    Left,
+}
+
+impl GuardDirection {
+    fn build(guard_char: char) -> Result<GuardDirection, &'static str> {
+        match guard_char {
+            '^' => Ok(GuardDirection::Up),
+            '>' => Ok(GuardDirection::Right),
+            'v' => Ok(GuardDirection::Down),
+            '<' => Ok(GuardDirection::Left),
+            _ => Err("Invalid guard char"),
+        }
+    }
+}
+
 struct LevelMap {
     cells: Vec<Vec<char>>,
     x_max: usize,
     y_max: usize,
-    start_position: (usize, usize),
+    position: (usize, usize),
+    direction: GuardDirection,
+    unique_positions_to_exit: Vec<(usize, usize)>,
 }
 
 impl LevelMap {
@@ -63,27 +85,41 @@ impl LevelMap {
         }
 
         // search for the start
-        let mut start_position: (usize, usize) = (0, 0);
+        let mut position: (usize, usize) = (0, 0);
         cells.iter().enumerate().for_each(|(y, value)| {
             value.iter().enumerate().for_each(|(x, c)| {
                 if *c == guard {
-                    start_position = (x, y);
+                    position = (x, y);
                 }
             });
         });
+
+        let direction = GuardDirection::build(guard).unwrap();
 
         Ok(LevelMap {
             cells,
             x_max,
             y_max,
-            start_position,
+            position,
+            direction,
+            unique_positions_to_exit: Vec::new(),
         })
+    }
+
+    fn move_to_exit(&self) {
+        todo!();
+        // while next is inside
+    }
+
+    fn total_unique_positions(&self) -> u32 {
+        self.unique_positions_to_exit.len().try_into().unwrap()
     }
 }
 
 fn compute_total_unique_positions(raw_data: &str, guard: char) -> u32 {
     let map = LevelMap::build(raw_data, guard).unwrap();
-    todo!();
+    map.move_to_exit();
+    map.total_unique_positions()
 }
 
 pub fn run(config: Config) -> Result<(u32), Box<dyn Error>> {
@@ -119,7 +155,11 @@ mod tests {
 ......#...";
 
         let level_map = LevelMap::build(data, '^').unwrap();
-        assert_eq!(level_map.start_position, (4, 6));
+        assert_eq!(level_map.x_max, 10);
+        assert_eq!(level_map.y_max, 10);
+        assert_eq!(level_map.position, (4, 6));
+        assert_eq!(level_map.direction, GuardDirection::Up);
+        assert_eq!(level_map.unique_positions_to_exit.len(), 0);
     }
 
     #[test]

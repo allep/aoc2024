@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::io::{self, Read};
 use std::{error::Error, fs, fs::File, process};
 
@@ -28,7 +29,7 @@ impl Config {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 enum GuardDirection {
     Up,
     Right,
@@ -54,7 +55,7 @@ struct LevelMap {
     y_max: usize,
     position: (usize, usize),
     direction: GuardDirection,
-    unique_positions_to_exit: Vec<(usize, usize)>,
+    unique_positions_to_exit: HashSet<(usize, usize)>,
 }
 
 impl LevelMap {
@@ -102,13 +103,39 @@ impl LevelMap {
             y_max,
             position,
             direction,
-            unique_positions_to_exit: Vec::new(),
+            unique_positions_to_exit: HashSet::new(),
         })
     }
 
-    fn move_to_exit(&self) {
-        todo!();
-        // while next is inside
+    fn move_to_exit(&mut self) {
+        while let Some((next, direction)) = self.get_next_cell() {
+            self.position = next;
+            self.direction = direction;
+            self.unique_positions_to_exit.insert(self.position);
+        }
+    }
+
+    fn get_next_cell(&self) -> Option<((usize, usize), GuardDirection)> {
+        let delta = match self.direction {
+            GuardDirection::Up => (0, -1),
+            GuardDirection::Right => (1, 0),
+            GuardDirection::Down => (0, 1),
+            GuardDirection::Left => (-1, 0),
+        };
+
+        let next_x: i32 = self.position.0 as i32 + delta.0;
+        let next_y: i32 = self.position.1 as i32 + delta.1;
+
+        if next_x >= 0 && next_x < self.x_max as i32 && next_y >= 0 && next_y < self.y_max as i32 {
+            let next_pos = (next_x as usize, next_y as usize);
+            let next_dir = self.direction;
+
+            println!("Next cell is {:?}, direction {:?}", next_pos, next_dir);
+
+            return Some((next_pos, next_dir));
+        }
+
+        None
     }
 
     fn total_unique_positions(&self) -> u32 {
@@ -117,7 +144,7 @@ impl LevelMap {
 }
 
 fn compute_total_unique_positions(raw_data: &str, guard: char) -> u32 {
-    let map = LevelMap::build(raw_data, guard).unwrap();
+    let mut map = LevelMap::build(raw_data, guard).unwrap();
     map.move_to_exit();
     map.total_unique_positions()
 }

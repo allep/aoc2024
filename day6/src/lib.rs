@@ -4,32 +4,92 @@ use std::{error::Error, fs, fs::File, process};
 #[derive(Debug)]
 pub struct Config {
     puzzle_input: String,
+    guard: char,
 }
 
 impl Config {
     pub fn build(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 2 {
+        if args.len() < 3 {
             return Err("Not enough arguments");
         }
 
         let puzzle_input = args[1].clone();
+        let guard = match args[2].chars().next() {
+            Some(c) if args[2].len() == 1 => c,
+            _ => {
+                return Err("Invalid second arguments: must be a single char.");
+            }
+        };
 
-        Ok(Config { puzzle_input })
+        Ok(Config {
+            puzzle_input,
+            guard,
+        })
     }
 }
 
-fn get_lines(raw_input: &str) -> Vec<&str> {
-    let chunks: Vec<&str> = raw_input.trim().split("\n").collect();
-    chunks
+struct LevelMap {
+    cells: Vec<Vec<char>>,
+    x_max: usize,
+    y_max: usize,
+    start_position: (usize, usize),
 }
 
-fn compute_total_unique_positions(raw_data: &str) -> u32 {
+impl LevelMap {
+    fn make(raw_data: &str, guard: char) -> Result<LevelMap, &'static str> {
+        let lines: Vec<&str> = raw_data.trim().split("\n").collect();
+        let y_max = lines.len();
+        if y_max == 0 {
+            return Err("No lines to parse");
+        }
+
+        let x_max = lines[0].len();
+        if x_max == 0 {
+            return Err("Empty line");
+        }
+
+        let cells: Vec<Vec<char>> = lines.iter().map(|s| s.chars().collect()).collect();
+
+        // ensure all rows are correct
+        let mut cells_ok = true;
+        cells.iter().for_each(|l| {
+            if l.len() != x_max {
+                cells_ok = false;
+            }
+        });
+
+        if !cells_ok {
+            return Err("Variable length lines");
+        }
+
+        // search for the start
+        let mut start_position: (usize, usize) = (0, 0);
+        cells.iter().enumerate().for_each(|(y, value)| {
+            value.iter().enumerate().for_each(|(x, c)| {
+                if *c == guard {
+                    start_position = (x, y);
+                }
+            });
+        });
+
+        Ok(LevelMap {
+            cells,
+            x_max,
+            y_max,
+            start_position,
+        })
+    }
+}
+
+fn compute_total_unique_positions(raw_data: &str, guard: char) -> u32 {
+    let map = LevelMap::make(raw_data, guard).unwrap();
     todo!();
 }
 
 pub fn run(config: Config) -> Result<(u32), Box<dyn Error>> {
     let content = fs::read_to_string(config.puzzle_input)?;
-    let total = compute_total_unique_positions(&content);
+    let guard = config.guard;
+    let total = compute_total_unique_positions(&content, guard);
 
     Ok((total))
 }
@@ -57,6 +117,7 @@ mod tests {
 ........#.
 #.........
 ......#...";
-        assert_eq!(compute_total_unique_positions(data), 41);
+        let guard = '^';
+        assert_eq!(compute_total_unique_positions(data, guard), 41);
     }
 }

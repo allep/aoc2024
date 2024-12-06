@@ -29,7 +29,7 @@ impl Config {
     }
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 enum GuardDirection {
     Up,
     Right,
@@ -53,9 +53,14 @@ struct LevelMap {
     cells: Vec<Vec<char>>,
     x_max: usize,
     y_max: usize,
+    guard_start_position: (usize, usize),
+    guard_start_direction: GuardDirection,
+    obstacle: Option<(usize, usize)>,
     position: (usize, usize),
     direction: GuardDirection,
     unique_positions_to_exit: HashSet<(usize, usize)>,
+    unique_positions_and_directions: HashSet<((usize, usize), GuardDirection)>,
+    loop_found: bool,
 }
 
 impl LevelMap {
@@ -95,20 +100,45 @@ impl LevelMap {
             });
         });
 
+        let guard_start_position = position;
+
         let direction = GuardDirection::build(guard).unwrap();
+        let guard_start_direction = direction;
+
+        let obstacle = None;
 
         Ok(LevelMap {
             cells,
             x_max,
             y_max,
+            guard_start_position,
+            guard_start_direction,
             position,
+            obstacle,
             direction,
             unique_positions_to_exit: HashSet::new(),
+            unique_positions_and_directions: HashSet::new(),
+            loop_found: false,
         })
     }
 
+    fn reset(&mut self) {
+        self.position = self.guard_start_position;
+        self.direction = self.guard_start_direction;
+        self.obstacle = None;
+        self.loop_found = false;
+    }
+
+    fn set_obstacle(&mut self, obstacle_position: (usize, usize)) {
+        self.obstacle = Some(obstacle_position);
+    }
+
     fn move_to_exit(&mut self) {
-        while self.move_to_next_cell() {}
+        while self.move_to_next_cell() {
+            if self.loop_found {
+                break;
+            }
+        }
     }
 
     fn move_to_next_cell(&mut self) -> bool {
@@ -132,6 +162,16 @@ impl LevelMap {
                     self.position = next_pos;
                     self.unique_positions_to_exit.insert(self.position);
 
+                    let pos_and_dir = ((next_pos), next_direction);
+                    if self.unique_positions_and_directions.contains(&pos_and_dir) {
+                        if let Some(op) = self.obstacle {
+                            println!("Found loop for obstacle in position {:?}", op);
+                        }
+                        self.loop_found = true;
+                    } else {
+                        self.unique_positions_and_directions.insert(pos_and_dir);
+                    }
+
                     return true;
                 }
 
@@ -150,6 +190,13 @@ impl LevelMap {
     fn is_cell_free(&self, position: &(usize, usize)) -> bool {
         assert!(position.0 < self.x_max);
         assert!(position.1 < self.y_max);
+
+        if let Some(obstacle_position) = self.obstacle {
+            if obstacle_position == *position {
+                return false;
+            }
+        }
+
         self.cells[position.1][position.0] != '#'
     }
 
@@ -169,6 +216,26 @@ fn compute_total_unique_positions(raw_data: &str, guard: char) -> u32 {
     let mut map = LevelMap::build(raw_data, guard).unwrap();
     map.move_to_exit();
     map.total_unique_positions()
+}
+
+fn compute_total_obstacles_positions(raw_data: &str, guard: char) -> u32 {
+    // first get the "critical path"
+    let mut map = LevelMap::build(raw_data, guard).unwrap();
+    map.move_to_exit();
+
+    let path = map.unique_positions_to_exit.clone();
+    let mut num_obstacles: u32 = 0;
+    for pos in path {
+        map.reset();
+        map.set_obstacle(pos);
+        map.move_to_exit();
+
+        if map.loop_found {
+            num_obstacles += 1;
+        }
+    }
+
+    num_obstacles
 }
 
 pub fn run(config: Config) -> Result<(u32), Box<dyn Error>> {
@@ -226,5 +293,22 @@ mod tests {
 ......#...";
         let guard = '^';
         assert_eq!(compute_total_unique_positions(data, guard), 41);
+    }
+
+    #[test]
+    fn part2_logic_test() {
+        let data = "\
+....#.....
+.........#
+..........
+..#.......
+.......#..
+..........
+.#..^.....
+........#.
+#.........
+......#...";
+        let guard = '^';
+        assert_eq!(compute_total_obstacles_positions(data, guard), 41);
     }
 }

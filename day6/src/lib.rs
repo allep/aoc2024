@@ -132,19 +132,12 @@ impl LevelMap {
                     self.position = next_pos;
                     self.unique_positions_to_exit.insert(self.position);
 
-                    println!(
-                        "Moving to position {:?}, direction {:?}",
-                        self.position, self.direction
-                    );
                     return true;
-                } else {
-                    println!("Cell at position {:?} is occopied.", next_pos);
                 }
 
                 self.direction = next_direction;
             } else {
                 // the cell is outside the map
-                println!("Exiting the map!");
                 return false;
             }
         }

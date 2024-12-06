@@ -125,6 +125,8 @@ impl LevelMap {
     fn reset(&mut self) {
         self.position = self.guard_start_position;
         self.direction = self.guard_start_direction;
+        self.unique_positions_to_exit.clear();
+        self.unique_positions_and_directions.clear();
         self.obstacle = None;
         self.loop_found = false;
     }
@@ -309,6 +311,6 @@ mod tests {
 #.........
 ......#...";
         let guard = '^';
-        assert_eq!(compute_total_obstacles_positions(data, guard), 41);
+        assert_eq!(compute_total_obstacles_positions(data, guard), 6);
     }
 }

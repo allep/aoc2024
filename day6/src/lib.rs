@@ -108,34 +108,63 @@ impl LevelMap {
     }
 
     fn move_to_exit(&mut self) {
-        while let Some((next, direction)) = self.get_next_cell() {
-            self.position = next;
-            self.direction = direction;
-            self.unique_positions_to_exit.insert(self.position);
-        }
+        while self.move_to_next_cell() {}
     }
 
-    fn get_next_cell(&self) -> Option<((usize, usize), GuardDirection)> {
-        let delta = match self.direction {
-            GuardDirection::Up => (0, -1),
-            GuardDirection::Right => (1, 0),
-            GuardDirection::Down => (0, 1),
-            GuardDirection::Left => (-1, 0),
-        };
+    fn move_to_next_cell(&mut self) -> bool {
+        // up to 4 possible cells
+        for ix in 0..4 {
+            let (delta, next_direction) = match self.direction {
+                GuardDirection::Up => ((0, -1), GuardDirection::Right),
+                GuardDirection::Right => ((1, 0), GuardDirection::Down),
+                GuardDirection::Down => ((0, 1), GuardDirection::Left),
+                GuardDirection::Left => ((-1, 0), GuardDirection::Up),
+            };
 
-        let next_x: i32 = self.position.0 as i32 + delta.0;
-        let next_y: i32 = self.position.1 as i32 + delta.1;
+            let next_x: i32 = self.position.0 as i32 + delta.0;
+            let next_y: i32 = self.position.1 as i32 + delta.1;
+            let next_pos = (next_x, next_y);
 
-        if next_x >= 0 && next_x < self.x_max as i32 && next_y >= 0 && next_y < self.y_max as i32 {
-            let next_pos = (next_x as usize, next_y as usize);
-            let next_dir = self.direction;
+            if self.is_cell_inside_map(&next_pos) {
+                let next_pos = (next_x as usize, next_y as usize);
 
-            println!("Next cell is {:?}, direction {:?}", next_pos, next_dir);
+                if self.is_cell_free(&next_pos) {
+                    self.position = next_pos;
+                    self.unique_positions_to_exit.insert(self.position);
 
-            return Some((next_pos, next_dir));
+                    println!(
+                        "Moving to position {:?}, direction {:?}",
+                        self.position, self.direction
+                    );
+                    return true;
+                } else {
+                    println!("Cell at position {:?} is occopied.", next_pos);
+                }
+
+                self.direction = next_direction;
+            } else {
+                // the cell is outside the map
+                println!("Exiting the map!");
+                return false;
+            }
         }
 
-        None
+        // fallback: in this case we tried all possible attempts
+        panic!("Attempted all possible directions!");
+        false
+    }
+
+    fn is_cell_free(&self, position: &(usize, usize)) -> bool {
+        assert!(position.0 < self.x_max);
+        assert!(position.1 < self.y_max);
+        self.cells[position.1][position.0] != '#'
+    }
+
+    fn is_cell_inside_map(&self, position: &(i32, i32)) -> bool {
+        position.0 >= 0
+            && position.0 < self.x_max as i32
+            && position.1 >= 0
+            && position.1 < self.y_max as i32
     }
 
     fn total_unique_positions(&self) -> u32 {

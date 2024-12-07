@@ -33,7 +33,9 @@ impl Config {
 }
 
 struct UpdateSet {
+    rules: Vec<Rule>,
     right_order_updates: Vec<Vec<i32>>,
+    invalid_order_updates: Vec<Vec<i32>>,
 }
 
 impl UpdateSet {
@@ -41,6 +43,7 @@ impl UpdateSet {
         let lines: Vec<&str> = raw_content.trim().split("\n").collect();
 
         let mut right_order_updates = Vec::new();
+        let mut invalid_order_updates = Vec::new();
         for l in lines {
             let values: Vec<&str> = l.trim().split(",").collect();
             let values: Vec<i32> = values
@@ -50,11 +53,15 @@ impl UpdateSet {
 
             if UpdateSet::rules_valid(&values, &rules) {
                 right_order_updates.push(values);
+            } else {
+                invalid_order_updates.push(values);
             }
         }
 
         Ok(UpdateSet {
+            rules,
             right_order_updates,
+            invalid_order_updates,
         })
     }
 
@@ -77,9 +84,25 @@ impl UpdateSet {
         self.right_order_updates.len()
     }
 
-    fn middle_page_numbers_sum(&self) -> u32 {
+    fn right_ordered_middle_page_numbers_sum(&self) -> u32 {
         let mut sum: u32 = 0;
         self.right_order_updates.iter().for_each(|update| {
+            assert!(update.len() % 2 == 1);
+
+            let index = update.len() / 2;
+            sum += u32::try_from(update[index]).unwrap();
+        });
+
+        sum
+    }
+
+    fn order_wrong_updates_by_rules(&mut self) {
+        todo!();
+    }
+
+    fn wrong_ordered_middle_page_number_Sum(&self) -> u32 {
+        let mut sum: u32 = 0;
+        self.invalid_order_updates.iter().for_each(|update| {
             assert!(update.len() % 2 == 1);
 
             let index = update.len() / 2;
@@ -111,7 +134,7 @@ pub fn run(config: Config) -> Result<u32, Box<dyn Error>> {
 
     let rules: Vec<Rule> = deserialize(rules.as_bytes()).unwrap();
     let updates = UpdateSet::make(&updates, rules).unwrap();
-    Ok(updates.middle_page_numbers_sum())
+    Ok(updates.right_ordered_middle_page_numbers_sum())
 }
 
 // Note on printing during tests:
@@ -188,7 +211,7 @@ first_page,second_page
         let updates_set = UpdateSet::make(updates, rules).unwrap();
 
         assert_eq!(updates_set.right_order_updates(), 3);
-        assert_eq!(updates_set.middle_page_numbers_sum(), 143);
+        assert_eq!(updates_set.right_ordered_middle_page_numbers_sum(), 143);
     }
 
     #[test]

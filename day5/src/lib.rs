@@ -1,8 +1,8 @@
 use csv::Reader;
 use serde::de::DeserializeOwned;
+use std::error::Error;
 use std::fs;
-use std::io::{self, Read};
-use std::{error::Error, fs::File, process};
+use std::io::Read;
 
 #[derive(Debug, serde::Deserialize)]
 struct Rule {
@@ -93,9 +93,13 @@ where
     Ok(structs)
 }
 
-pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    // TODO
-    Ok(())
+pub fn run(config: Config) -> Result<usize, Box<dyn Error>> {
+    let rules = fs::read_to_string(config.first_file)?;
+    let updates = fs::read_to_string(config.second_file)?;
+
+    let rules: Vec<Rule> = deserialize(rules.as_bytes()).unwrap();
+    let updates = UpdateSet::make(&updates, rules).unwrap();
+    Ok(updates.right_order_updates())
 }
 
 // Note on printing during tests:
@@ -104,7 +108,8 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
-    use io::BufReader;
+    use std::fs::File;
+    use std::io::BufReader;
 
     use super::*;
 
@@ -119,6 +124,7 @@ first_page,second_page
 ";
 
         let structs: Vec<Rule> = deserialize(data.as_bytes()).unwrap();
+        assert_eq!(structs.len(), 3);
     }
 
     #[test]
@@ -129,6 +135,7 @@ first_page,second_page
         let reader = BufReader::new(file);
 
         let structs: Vec<Rule> = deserialize(reader).unwrap();
+        assert_eq!(structs.len(), 21);
     }
 
     #[test]

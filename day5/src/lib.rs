@@ -48,7 +48,7 @@ impl UpdateSet {
                 .map(|v| v.parse().expect("Cannot convert to i32"))
                 .collect();
 
-            if UpdateSet::not_violate_rules(&values, &rules) {
+            if UpdateSet::rules_valid(&values, &rules) {
                 right_order_updates.push(values);
             }
         }
@@ -58,8 +58,23 @@ impl UpdateSet {
         })
     }
 
-    fn not_violate_rules(values: &Vec<i32>, rules: &Vec<Rule>) -> bool {
-        true
+    fn rules_valid(values: &Vec<i32>, rules: &Vec<Rule>) -> bool {
+        let mut rules_valid = true;
+        rules.iter().for_each(|r| {
+            let first = values.iter().position(|&x| x == r.first_page);
+            let second = values.iter().position(|&x| x == r.second_page);
+
+            if let (Some(first), Some(second)) = (first, second) {
+                if first >= second {
+                    rules_valid = false;
+                }
+            }
+        });
+        rules_valid
+    }
+
+    fn right_order_updates(&self) -> usize {
+        self.right_order_updates.len()
     }
 }
 
@@ -152,5 +167,27 @@ first_page,second_page
 
         let rules: Vec<Rule> = deserialize(rules.as_bytes()).unwrap();
         let updates_set = UpdateSet::make(updates, rules).unwrap();
+
+        assert_eq!(updates_set.right_order_updates(), 3);
+    }
+
+    #[test]
+    fn violation_validation() {
+        let rules = vec![(47, 53), (97, 13), (97, 61)];
+        let update = vec![75, 47, 61, 53, 29];
+
+        let mut rules_valid = true;
+        rules.iter().for_each(|&r| {
+            let first = update.iter().position(|&x| x == r.0);
+            let second = update.iter().position(|&x| x == r.1);
+
+            if let (Some(first), Some(second)) = (first, second) {
+                if first >= second {
+                    rules_valid = false;
+                }
+            }
+        });
+
+        assert!(rules_valid);
     }
 }

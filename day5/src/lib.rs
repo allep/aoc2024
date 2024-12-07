@@ -76,6 +76,18 @@ impl UpdateSet {
     fn right_order_updates(&self) -> usize {
         self.right_order_updates.len()
     }
+
+    fn middle_page_numbers_sum(&self) -> u32 {
+        let mut sum: u32 = 0;
+        self.right_order_updates.iter().for_each(|update| {
+            assert!(update.len() % 2 == 1);
+
+            let index = update.len() / 2;
+            sum += u32::try_from(update[index]).unwrap();
+        });
+
+        sum
+    }
 }
 
 fn deserialize<T, R>(reader: R) -> Result<Vec<T>, Box<dyn std::error::Error>>
@@ -93,13 +105,13 @@ where
     Ok(structs)
 }
 
-pub fn run(config: Config) -> Result<usize, Box<dyn Error>> {
+pub fn run(config: Config) -> Result<u32, Box<dyn Error>> {
     let rules = fs::read_to_string(config.first_file)?;
     let updates = fs::read_to_string(config.second_file)?;
 
     let rules: Vec<Rule> = deserialize(rules.as_bytes()).unwrap();
     let updates = UpdateSet::make(&updates, rules).unwrap();
-    Ok(updates.right_order_updates())
+    Ok(updates.middle_page_numbers_sum())
 }
 
 // Note on printing during tests:
@@ -176,6 +188,7 @@ first_page,second_page
         let updates_set = UpdateSet::make(updates, rules).unwrap();
 
         assert_eq!(updates_set.right_order_updates(), 3);
+        assert_eq!(updates_set.middle_page_numbers_sum(), 143);
     }
 
     #[test]

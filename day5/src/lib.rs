@@ -1,4 +1,5 @@
 use csv::Reader;
+use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::error::Error;
 use std::fs;
@@ -65,7 +66,7 @@ impl UpdateSet {
         })
     }
 
-    fn rules_valid(values: &Vec<i32>, rules: &Vec<Rule>) -> bool {
+    fn rules_valid(values: &[i32], rules: &Vec<Rule>) -> bool {
         let mut rules_valid = true;
         rules.iter().for_each(|r| {
             let first = values.iter().position(|&x| x == r.first_page);
@@ -97,7 +98,30 @@ impl UpdateSet {
     }
 
     fn order_wrong_updates_by_rules(&mut self) {
-        todo!();
+        let wrong_updates = self.invalid_order_updates.clone();
+        let num_wrong_updates = wrong_updates.len();
+
+        let mut fixed_updates = Vec::new();
+        for (index, w) in wrong_updates.into_iter().enumerate() {
+            println!("Fixing updates n. {index} / {}", num_wrong_updates);
+            let num_permutations = w.len();
+
+            let permutations: Vec<Vec<i32>> = w
+                .into_iter()
+                .permutations(num_permutations)
+                .unique()
+                .map(|p| p.to_vec())
+                .collect();
+
+            for p in permutations {
+                if UpdateSet::rules_valid(&p, &self.rules) {
+                    fixed_updates.push(p);
+                    break;
+                }
+            }
+        }
+
+        self.invalid_order_updates = fixed_updates;
     }
 
     fn wrong_ordered_middle_page_number_sum(&self) -> u32 {
@@ -128,13 +152,17 @@ where
     Ok(structs)
 }
 
-pub fn run(config: Config) -> Result<u32, Box<dyn Error>> {
+pub fn run(config: Config) -> Result<(u32, u32), Box<dyn Error>> {
     let rules = fs::read_to_string(config.first_file)?;
     let updates = fs::read_to_string(config.second_file)?;
 
     let rules: Vec<Rule> = deserialize(rules.as_bytes()).unwrap();
-    let updates = UpdateSet::make(&updates, rules).unwrap();
-    Ok(updates.right_ordered_middle_page_numbers_sum())
+    let mut updates = UpdateSet::make(&updates, rules).unwrap();
+    let right_order_sum = updates.right_ordered_middle_page_numbers_sum();
+
+    updates.order_wrong_updates_by_rules();
+    let invalid_order_sum = updates.wrong_ordered_middle_page_number_sum();
+    Ok((right_order_sum, invalid_order_sum))
 }
 
 // Note on printing during tests:
@@ -273,5 +301,13 @@ first_page,second_page
 
         updates_set.order_wrong_updates_by_rules();
         assert_eq!(updates_set.wrong_ordered_middle_page_number_sum(), 123);
+    }
+
+    #[test]
+    fn invalid_order_fix_strategy() {
+        let items = vec![1, 2, 3, 4, 5, 6];
+
+        let perms = items.iter().permutations(items.len()).unique();
+        assert_eq!(perms.count(), 720);
     }
 }

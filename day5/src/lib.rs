@@ -106,6 +106,8 @@ impl UpdateSet {
             println!("Fixing updates n. {index} / {}", num_wrong_updates);
             let num_permutations = w.len();
 
+            println!("Computing permutations ...");
+
             let permutations: Vec<Vec<i32>> = w
                 .into_iter()
                 .permutations(num_permutations)
@@ -113,7 +115,10 @@ impl UpdateSet {
                 .map(|p| p.to_vec())
                 .collect();
 
+            println!("Permutations computed: {}", permutations.len());
+
             for p in permutations {
+                println!(" - Checking against permutation {:?}", p);
                 if UpdateSet::rules_valid(&p, &self.rules) {
                     fixed_updates.push(p);
                     break;

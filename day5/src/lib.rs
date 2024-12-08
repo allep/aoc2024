@@ -100,7 +100,7 @@ impl UpdateSet {
         todo!();
     }
 
-    fn wrong_ordered_middle_page_number_Sum(&self) -> u32 {
+    fn wrong_ordered_middle_page_number_sum(&self) -> u32 {
         let mut sum: u32 = 0;
         self.invalid_order_updates.iter().for_each(|update| {
             assert!(update.len() % 2 == 1);
@@ -232,5 +232,46 @@ first_page,second_page
         });
 
         assert!(rules_valid);
+    }
+
+    #[test]
+    fn invalid_order_update_sample_validation() {
+        let rules = "\
+first_page,second_page
+47,53
+97,13
+97,61
+97,47
+75,29
+61,13
+75,53
+29,13
+97,29
+53,29
+61,53
+97,53
+61,29
+47,13
+75,47
+97,75
+47,61
+75,61
+47,29
+75,13
+53,13";
+
+        let updates = "\
+75,47,61,53,29
+97,61,53,29,13
+75,29,13
+75,97,47,61,53
+61,13,29
+97,13,75,29,47";
+
+        let rules: Vec<Rule> = deserialize(rules.as_bytes()).unwrap();
+        let mut updates_set = UpdateSet::make(updates, rules).unwrap();
+
+        updates_set.order_wrong_updates_by_rules();
+        assert_eq!(updates_set.wrong_ordered_middle_page_number_sum(), 123);
     }
 }

@@ -25,6 +25,14 @@ impl Config {
     }
 }
 
+struct DiskMap {}
+
+impl DiskMap {
+    pub fn make(raw_data: &str) -> Result<DiskMap, &'static str> {
+        todo!();
+    }
+}
+
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     // TODO
     Ok(())
@@ -44,6 +52,9 @@ mod tests {
     fn sample_input_validation() {
         let data = "\
 2333133121414131402";
+
+        let disk_map = DiskMap::make(data).unwrap();
+
         todo!();
     }
 }

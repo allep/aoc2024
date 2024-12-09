@@ -26,48 +26,70 @@ impl Config {
 }
 
 enum Block {
-    FileBlock { index: usize, id_number: u32 },
-    FreeSpaceBlock { index: usize },
+    FileBlock {
+        index: usize,
+        num_blocks: u32,
+        id_number: u32,
+    },
+    FreeSpaceBlock {
+        index: usize,
+        num_blocks: u32,
+    },
 }
 
-struct FileBlock {
-    index: usize,
-    id_number: u32,
-}
-
-struct FreeSpaceBlock {
-    index: usize,
+impl Block {
+    pub fn to_string(&self) -> String {
+        let mut content = String::new();
+        match self {
+            Block::FileBlock {
+                index,
+                num_blocks,
+                id_number,
+            } => {
+                let con = format!("{:width$}", id_number, width = *num_blocks as usize);
+                content += &con;
+            }
+            Block::FreeSpaceBlock { index, num_blocks } => {
+                let con = format!("{:width$}", ".", width = *num_blocks as usize);
+                content += &con;
+            }
+        }
+        content
+    }
 }
 
 struct DiskMap {
-    file_blocks: Vec<FileBlock>,
-    free_space_blocks: Vec<FreeSpaceBlock>,
+    blocks: Vec<Block>,
 }
 
 impl DiskMap {
     pub fn make(raw_data: &str) -> Result<DiskMap, &'static str> {
-        let mut file_blocks = Vec::new();
-        let mut free_space_blocks = Vec::new();
+        let mut blocks = Vec::new();
         let mut id_number = 0;
         for (index, c) in raw_data.char_indices() {
+            let num_blocks = c.to_digit(10).unwrap();
             if index % 2 == 0 {
-                // file case
-                file_blocks.push(FileBlock { index, id_number });
+                blocks.push(Block::FileBlock {
+                    index,
+                    num_blocks,
+                    id_number,
+                });
                 id_number += 1;
             } else {
-                // free block case
-                free_space_blocks.push(FreeSpaceBlock { index });
+                blocks.push(Block::FreeSpaceBlock { index, num_blocks });
             }
         }
 
-        Ok(DiskMap {
-            file_blocks,
-            free_space_blocks,
-        })
+        Ok(DiskMap { blocks })
     }
 
     pub fn to_string(&self) -> String {
-        todo!();
+        let mut representation = String::new();
+
+        for b in &self.blocks {
+            representation += &b.to_string();
+        }
+        representation
     }
 }
 

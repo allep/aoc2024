@@ -25,6 +25,11 @@ impl Config {
     }
 }
 
+enum Block {
+    FileBlock { index: usize, id_number: u32 },
+    FreeSpaceBlock { index: usize },
+}
+
 struct FileBlock {
     index: usize,
     id_number: u32,

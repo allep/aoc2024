@@ -98,35 +98,33 @@ impl UpdateSet {
     }
 
     fn order_wrong_updates_by_rules(&mut self) {
-        let wrong_updates = self.invalid_order_updates.clone();
-        let num_wrong_updates = wrong_updates.len();
+        for (exterior_index, w) in self.invalid_order_updates.iter_mut().enumerate() {
+            let num_items = w.len();
+            for index in 0..num_items {
+                let subvector = &mut w[index..];
 
-        let mut fixed_updates = Vec::new();
-        for (index, w) in wrong_updates.into_iter().enumerate() {
-            println!("Fixing updates n. {index} / {}", num_wrong_updates);
-            let num_permutations = w.len();
+                let mut redo_rules = true;
+                while redo_rules {
+                    redo_rules = false;
+                    for (ix, r) in self.rules.iter().enumerate() {
+                        let first = subvector.iter().position(|&x| x == r.first_page);
+                        let second = subvector.iter().position(|&x| x == r.second_page);
 
-            println!("Computing permutations ...");
+                        if let (Some(first), Some(second)) = (first, second) {
+                            if first >= second {
+                                // swap them
+                                let temp = subvector[first];
+                                subvector[first] = subvector[second];
+                                subvector[second] = temp;
 
-            let permutations: Vec<Vec<i32>> = w
-                .into_iter()
-                .permutations(num_permutations)
-                .unique()
-                .map(|p| p.to_vec())
-                .collect();
-
-            println!("Permutations computed: {}", permutations.len());
-
-            for p in permutations {
-                println!(" - Checking against permutation {:?}", p);
-                if UpdateSet::rules_valid(&p, &self.rules) {
-                    fixed_updates.push(p);
-                    break;
+                                redo_rules = true;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
         }
-
-        self.invalid_order_updates = fixed_updates;
     }
 
     fn wrong_ordered_middle_page_number_sum(&self) -> u32 {
@@ -310,9 +308,62 @@ first_page,second_page
 
     #[test]
     fn invalid_order_fix_strategy() {
-        let items = vec![1, 2, 3, 4, 5, 6];
+        let rules = "\
+first_page,second_page
+47,53
+97,13
+97,61
+97,47
+75,29
+61,13
+75,53
+29,13
+97,29
+53,29
+61,53
+97,53
+61,29
+47,13
+75,47
+97,75
+47,61
+75,61
+47,29
+75,13
+53,13";
 
-        let perms = items.iter().permutations(items.len()).unique();
-        assert_eq!(perms.count(), 720);
+        let mut items = vec![97, 13, 75, 29, 47];
+
+        let rules: Vec<Rule> = deserialize(rules.as_bytes()).unwrap();
+
+        let num_items = items.len();
+        for index in 0..num_items {
+            println!("Working index = {index}");
+            let subvector = &mut items[index..];
+
+            let mut redo_rules = true;
+            while redo_rules {
+                redo_rules = false;
+                for (ix, r) in rules.iter().enumerate() {
+                    println!("- Working rule = {ix}");
+                    let first = subvector.iter().position(|&x| x == r.first_page);
+                    let second = subvector.iter().position(|&x| x == r.second_page);
+
+                    if let (Some(first), Some(second)) = (first, second) {
+                        if first >= second {
+                            // swap them
+                            let temp = subvector[first];
+                            subvector[first] = subvector[second];
+                            subvector[second] = temp;
+
+                            redo_rules = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        assert_eq!(items, vec![97, 75, 47, 29, 13]);
     }
 }

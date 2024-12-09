@@ -25,37 +25,8 @@ impl Config {
     }
 }
 
-enum Block {
-    FileBlock {
-        index: usize,
-        num_blocks: u32,
-        id_number: u32,
-    },
-    FreeSpaceBlock {
-        index: usize,
-        num_blocks: u32,
-    },
-}
-
-impl Block {
-    pub fn to_string(&self) -> String {
-        let mut content = String::new();
-        match self {
-            Block::FileBlock {
-                index,
-                num_blocks,
-                id_number,
-            } => {
-                let con = format!("{:width$}", id_number, width = *num_blocks as usize);
-                content += &con;
-            }
-            Block::FreeSpaceBlock { index, num_blocks } => {
-                let con = format!("{:width$}", ".", width = *num_blocks as usize);
-                content += &con;
-            }
-        }
-        content
-    }
+struct Block {
+    id_number: Option<u32>,
 }
 
 struct DiskMap {
@@ -69,14 +40,17 @@ impl DiskMap {
         for (index, c) in raw_data.char_indices() {
             let num_blocks = c.to_digit(10).unwrap();
             if index % 2 == 0 {
-                blocks.push(Block::FileBlock {
-                    index,
-                    num_blocks,
-                    id_number,
-                });
+                for ix in 0..num_blocks {
+                    blocks.push(Block {
+                        id_number: Some(id_number),
+                    });
+                }
+
                 id_number += 1;
             } else {
-                blocks.push(Block::FreeSpaceBlock { index, num_blocks });
+                for ix in 0..num_blocks {
+                    blocks.push(Block { id_number: None });
+                }
             }
         }
 
@@ -87,7 +61,15 @@ impl DiskMap {
         let mut representation = String::new();
 
         for b in &self.blocks {
-            representation += &b.to_string();
+            match b.id_number {
+                Some(id_number) => {
+                    representation += &format!("{}", id_number);
+                }
+
+                None => {
+                    representation += ".";
+                }
+            }
         }
         representation
     }

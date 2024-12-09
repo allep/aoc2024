@@ -73,6 +73,38 @@ impl DiskMap {
         }
         representation
     }
+
+    pub fn defrag(&mut self) {
+        let empty_blocks_indices: Vec<usize> = self
+            .blocks
+            .iter()
+            .enumerate()
+            .filter(|&(_, value)| value.id_number.is_none())
+            .map(|(index, _)| index)
+            .collect();
+
+        let mut file_id_to_defrag = Vec::new();
+        let mut to_defrag_indexes = Vec::new();
+        for (index, b) in self.blocks.iter().rev().enumerate() {
+            if let Some(file_id) = b.id_number {
+                file_id_to_defrag.push(file_id);
+                to_defrag_indexes.push(index);
+            }
+        }
+
+        let mut to_defrag_iter = file_id_to_defrag.iter();
+        let mut to_defrag_index_iter = to_defrag_indexes.iter();
+
+        for ix in empty_blocks_indices {
+            let next = to_defrag_iter.next();
+            let next_index = to_defrag_index_iter.next();
+
+            if let (Some(file_id), Some(file_id_index)) = (next, next_index) {
+                self.blocks[ix].id_number = Some(*file_id);
+                self.blocks[*file_id_index].id_number = None;
+            }
+        }
+    }
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
@@ -95,10 +127,17 @@ mod tests {
         let data = "\
 2333133121414131402";
 
-        let disk_map = DiskMap::make(data).unwrap();
+        let mut disk_map = DiskMap::make(data).unwrap();
         assert_eq!(
             disk_map.to_string(),
             String::from("00...111...2...333.44.5555.6666.777.888899")
+        );
+
+        disk_map.defrag();
+
+        assert_eq!(
+            disk_map.to_string(),
+            String::from("0099811188827773336446555566.............")
         );
     }
 }

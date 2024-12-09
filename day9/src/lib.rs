@@ -25,16 +25,49 @@ impl Config {
     }
 }
 
-struct DiskMap {}
+struct FileBlock {
+    index: usize,
+    id_number: u32,
+}
+
+struct FreeSpaceBlock {
+    index: usize,
+}
+
+struct DiskMap {
+    file_blocks: Vec<FileBlock>,
+    free_space_blocks: Vec<FreeSpaceBlock>,
+}
 
 impl DiskMap {
     pub fn make(raw_data: &str) -> Result<DiskMap, &'static str> {
+        let mut file_blocks = Vec::new();
+        let mut free_space_blocks = Vec::new();
+        let mut id_number = 0;
+        for (index, c) in raw_data.char_indices() {
+            if index % 2 == 0 {
+                // file case
+                file_blocks.push(FileBlock { index, id_number });
+                id_number += 1;
+            } else {
+                // free block case
+                free_space_blocks.push(FreeSpaceBlock { index });
+            }
+        }
+
+        Ok(DiskMap {
+            file_blocks,
+            free_space_blocks,
+        })
+    }
+
+    pub fn to_string(&self) -> String {
         todo!();
     }
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    // TODO
+    todo!();
     Ok(())
 }
 
@@ -54,7 +87,9 @@ mod tests {
 2333133121414131402";
 
         let disk_map = DiskMap::make(data).unwrap();
-
-        todo!();
+        assert_eq!(
+            disk_map.to_string(),
+            String::from("00...111...2...333.44.5555.6666.777.888899")
+        );
     }
 }

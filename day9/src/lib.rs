@@ -162,11 +162,6 @@ impl DiskMap {
                 let mut free_block_new_info = None;
                 while let Some((info_index, free_block_info)) = free_iter.next() {
                     if block_info.size <= free_block_info.size {
-                        println!(
-                            "Found free block at index = {} for file with size {}",
-                            free_block_info.starting_index, block_info.size
-                        );
-
                         // actual move
                         let to_start_index = free_block_info.starting_index;
                         let from_start_index = block_info.starting_index;
@@ -185,11 +180,6 @@ impl DiskMap {
                         free_block_new_info = Some(padding);
 
                         break;
-                    } else {
-                        println!(
-                            "Found free block at index = {} with no enough size",
-                            free_block_info.starting_index
-                        );
                     }
                 }
 
@@ -204,8 +194,6 @@ impl DiskMap {
                     } else {
                         free_blocks.remove(free_index);
                     }
-
-                    println!("Moving file ...");
                 }
             }
         }
@@ -235,7 +223,7 @@ pub fn run(config: Config) -> Result<(u64), Box<dyn Error>> {
     let disk_map_raw = fs::read_to_string(config.first_file)?;
 
     let mut disk_map = DiskMap::make(&disk_map_raw)?;
-    disk_map.defrag_simple();
+    disk_map.defrag_to_complete_file();
     let checksum = disk_map.checksum();
 
     Ok((checksum))

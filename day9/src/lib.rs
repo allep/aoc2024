@@ -25,25 +25,32 @@ struct Block {
     id_number: Option<u32>,
 }
 
-struct FreeBlockInfo {
+struct BlockInfo {
     starting_index: usize,
     size: usize,
 }
 
 struct DiskMap {
     blocks: Vec<Block>,
-    free_blocks_cache: Option<Vec<FreeBlockInfo>>,
+    free_blocks_cache: Option<Vec<BlockInfo>>,
+    file_blocks_cache: Option<Vec<BlockInfo>>,
 }
 
 impl DiskMap {
     pub fn make(raw_data: &str) -> Result<DiskMap, &'static str> {
         let mut blocks = Vec::new();
         let mut free_blocks = Vec::new();
+        let mut file_blocks = Vec::new();
         let mut id_number = 0;
         let mut running_starting_index: u32 = 0;
         for (index, c) in raw_data.char_indices() {
             if let Some(num_blocks) = c.to_digit(10) {
+                let block_info = BlockInfo {
+                    starting_index: usize::try_from(running_starting_index).unwrap(),
+                    size: usize::try_from(num_blocks).unwrap(),
+                };
                 if index % 2 == 0 {
+                    file_blocks.push(block_info);
                     for ix in 0..num_blocks {
                         blocks.push(Block {
                             id_number: Some(id_number),
@@ -53,10 +60,7 @@ impl DiskMap {
                     id_number += 1;
                 } else {
                     if num_blocks > 0 {
-                        free_blocks.push(FreeBlockInfo {
-                            starting_index: usize::try_from(running_starting_index).unwrap(),
-                            size: usize::try_from(num_blocks).unwrap(),
-                        });
+                        free_blocks.push(block_info);
                         for ix in 0..num_blocks {
                             blocks.push(Block { id_number: None });
                         }
@@ -70,6 +74,7 @@ impl DiskMap {
         Ok(DiskMap {
             blocks,
             free_blocks_cache: Some(free_blocks),
+            file_blocks_cache: Some(file_blocks),
         })
     }
 
@@ -207,5 +212,21 @@ mod tests {
         );
 
         assert_eq!(disk_map.checksum(), 1928);
+    }
+
+    #[test]
+    fn part2_logic_validation() {
+        let data = "\
+2333133121414131402";
+
+        let mut disk_map = DiskMap::make(data).unwrap();
+        disk_map.defrag_to_complete_file();
+
+        assert_eq!(
+            disk_map.to_string(),
+            String::from("00992111777.44.333....5555.6666.....8888..")
+        );
+
+        assert_eq!(disk_map.checksum(), 2858);
     }
 }

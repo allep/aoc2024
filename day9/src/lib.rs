@@ -116,6 +116,19 @@ impl DiskMap {
         let num_elements_post = self.blocks.len();
         assert_eq!(num_elements_pre, num_elements_post);
     }
+
+    fn checksum(&self) -> u32 {
+        self.blocks
+            .iter()
+            .enumerate()
+            .map(|(index, value)| {
+                if let Some(file_id) = value.id_number {
+                    return file_id * u32::try_from(index).unwrap();
+                }
+                0
+            })
+            .sum()
+    }
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
@@ -150,5 +163,7 @@ mod tests {
             disk_map.to_string(),
             String::from("0099811188827773336446555566..............")
         );
+
+        assert_eq!(disk_map.checksum(), 1928);
     }
 }

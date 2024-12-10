@@ -25,14 +25,22 @@ struct Block {
     id_number: Option<u32>,
 }
 
+struct FreeBlockInfo {
+    starting_index: usize,
+    size: usize,
+}
+
 struct DiskMap {
     blocks: Vec<Block>,
+    free_blocks_cache: Option<Vec<FreeBlockInfo>>,
 }
 
 impl DiskMap {
     pub fn make(raw_data: &str) -> Result<DiskMap, &'static str> {
         let mut blocks = Vec::new();
+        let mut free_blocks = Vec::new();
         let mut id_number = 0;
+        let mut running_starting_index: u32 = 0;
         for (index, c) in raw_data.char_indices() {
             if let Some(num_blocks) = c.to_digit(10) {
                 if index % 2 == 0 {
@@ -44,14 +52,23 @@ impl DiskMap {
 
                     id_number += 1;
                 } else {
+                    free_blocks.push(FreeBlockInfo {
+                        starting_index: usize::try_from(running_starting_index).unwrap(),
+                        size: usize::try_from(num_blocks).unwrap(),
+                    });
                     for ix in 0..num_blocks {
                         blocks.push(Block { id_number: None });
                     }
                 }
+
+                running_starting_index += num_blocks;
             }
         }
 
-        Ok(DiskMap { blocks })
+        Ok(DiskMap {
+            blocks,
+            free_blocks_cache: Some(free_blocks),
+        })
     }
 
     pub fn to_string(&self) -> String {
@@ -112,6 +129,10 @@ impl DiskMap {
 
         let num_elements_post = self.blocks.len();
         assert_eq!(num_elements_pre, num_elements_post);
+    }
+
+    pub fn defrag_to_complete_file(&mut self) {
+        todo!()
     }
 
     fn checksum(&self) -> u64 {

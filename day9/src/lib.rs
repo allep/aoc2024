@@ -75,6 +75,8 @@ impl DiskMap {
     }
 
     pub fn defrag(&mut self) {
+        let num_elements_pre = self.blocks.len();
+
         let empty_blocks_indices: Vec<usize> = self
             .blocks
             .iter()
@@ -83,8 +85,6 @@ impl DiskMap {
             .map(|(index, _)| index)
             .collect();
 
-        println!("Empty block indices: {:?}", empty_blocks_indices);
-
         let mut file_block_to_defrag: Vec<(usize, u32)> = Vec::new();
         let file_block_end_index = self.blocks.len() - 1;
         for (index, b) in self.blocks.iter().rev().enumerate() {
@@ -92,8 +92,6 @@ impl DiskMap {
                 file_block_to_defrag.push((file_block_end_index - index, file_id));
             }
         }
-
-        println!("File to defrag block indices: {:?}", file_block_to_defrag);
 
         let max_defrag_elements = self
             .blocks
@@ -114,6 +112,9 @@ impl DiskMap {
                 self.blocks[*index].id_number = None;
             }
         }
+
+        let num_elements_post = self.blocks.len();
+        assert_eq!(num_elements_pre, num_elements_post);
     }
 }
 
@@ -147,7 +148,7 @@ mod tests {
 
         assert_eq!(
             disk_map.to_string(),
-            String::from("0099811188827773336446555566.............")
+            String::from("0099811188827773336446555566..............")
         );
     }
 }

@@ -71,7 +71,7 @@ impl DiskMap {
         representation
     }
 
-    pub fn defrag(&mut self) {
+    pub fn defrag_simple(&mut self) {
         let num_elements_pre = self.blocks.len();
 
         let empty_blocks_indices: Vec<usize> = self
@@ -132,7 +132,7 @@ pub fn run(config: Config) -> Result<(u64), Box<dyn Error>> {
     let disk_map_raw = fs::read_to_string(config.first_file)?;
 
     let mut disk_map = DiskMap::make(&disk_map_raw)?;
-    disk_map.defrag();
+    disk_map.defrag_simple();
     let checksum = disk_map.checksum();
 
     Ok((checksum))
@@ -159,7 +159,7 @@ mod tests {
             String::from("00...111...2...333.44.5555.6666.777.888899")
         );
 
-        disk_map.defrag();
+        disk_map.defrag_simple();
 
         assert_eq!(
             disk_map.to_string(),

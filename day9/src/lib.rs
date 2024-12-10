@@ -83,25 +83,35 @@ impl DiskMap {
             .map(|(index, _)| index)
             .collect();
 
-        let mut file_id_to_defrag = Vec::new();
-        let mut to_defrag_indexes = Vec::new();
+        println!("Empty block indices: {:?}", empty_blocks_indices);
+
+        let mut file_block_to_defrag: Vec<(usize, u32)> = Vec::new();
+        let file_block_end_index = self.blocks.len() - 1;
         for (index, b) in self.blocks.iter().rev().enumerate() {
             if let Some(file_id) = b.id_number {
-                file_id_to_defrag.push(file_id);
-                to_defrag_indexes.push(index);
+                file_block_to_defrag.push((file_block_end_index - index, file_id));
             }
         }
 
-        let mut to_defrag_iter = file_id_to_defrag.iter();
-        let mut to_defrag_index_iter = to_defrag_indexes.iter();
+        println!("File to defrag block indices: {:?}", file_block_to_defrag);
 
+        let max_defrag_elements = self
+            .blocks
+            .iter()
+            .filter(|&block| block.id_number.is_some())
+            .count();
+
+        let mut to_defrag_iter = file_block_to_defrag.iter();
         for ix in empty_blocks_indices {
-            let next = to_defrag_iter.next();
-            let next_index = to_defrag_index_iter.next();
+            if ix >= max_defrag_elements {
+                break;
+            }
 
-            if let (Some(file_id), Some(file_id_index)) = (next, next_index) {
+            let next = to_defrag_iter.next();
+
+            if let Some((index, file_id)) = next {
                 self.blocks[ix].id_number = Some(*file_id);
-                self.blocks[*file_id_index].id_number = None;
+                self.blocks[*index].id_number = None;
             }
         }
     }

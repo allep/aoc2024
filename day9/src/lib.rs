@@ -1,27 +1,23 @@
 use csv::Reader;
 use serde::de::DeserializeOwned;
+use std::fs;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
 
 #[derive(Debug)]
 pub struct Config {
     first_file: String,
-    second_file: String,
 }
 
 impl Config {
     pub fn build(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 3 {
+        if args.len() < 2 {
             return Err("Not enough arguments");
         }
 
         let first_file = args[1].clone();
-        let second_file = args[2].clone();
 
-        Ok(Config {
-            first_file,
-            second_file,
-        })
+        Ok(Config { first_file })
     }
 }
 
@@ -38,18 +34,19 @@ impl DiskMap {
         let mut blocks = Vec::new();
         let mut id_number = 0;
         for (index, c) in raw_data.char_indices() {
-            let num_blocks = c.to_digit(10).unwrap();
-            if index % 2 == 0 {
-                for ix in 0..num_blocks {
-                    blocks.push(Block {
-                        id_number: Some(id_number),
-                    });
-                }
+            if let Some(num_blocks) = c.to_digit(10) {
+                if index % 2 == 0 {
+                    for ix in 0..num_blocks {
+                        blocks.push(Block {
+                            id_number: Some(id_number),
+                        });
+                    }
 
-                id_number += 1;
-            } else {
-                for ix in 0..num_blocks {
-                    blocks.push(Block { id_number: None });
+                    id_number += 1;
+                } else {
+                    for ix in 0..num_blocks {
+                        blocks.push(Block { id_number: None });
+                    }
                 }
             }
         }
@@ -117,13 +114,13 @@ impl DiskMap {
         assert_eq!(num_elements_pre, num_elements_post);
     }
 
-    fn checksum(&self) -> u32 {
+    fn checksum(&self) -> u64 {
         self.blocks
             .iter()
             .enumerate()
             .map(|(index, value)| {
                 if let Some(file_id) = value.id_number {
-                    return file_id * u32::try_from(index).unwrap();
+                    return u64::try_from(file_id).unwrap() * u64::try_from(index).unwrap();
                 }
                 0
             })
@@ -131,9 +128,14 @@ impl DiskMap {
     }
 }
 
-pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    todo!();
-    Ok(())
+pub fn run(config: Config) -> Result<(u64), Box<dyn Error>> {
+    let disk_map_raw = fs::read_to_string(config.first_file)?;
+
+    let mut disk_map = DiskMap::make(&disk_map_raw)?;
+    disk_map.defrag();
+    let checksum = disk_map.checksum();
+
+    Ok((checksum))
 }
 
 // Note on printing during tests:

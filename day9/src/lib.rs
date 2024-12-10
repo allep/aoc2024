@@ -159,6 +159,7 @@ impl DiskMap {
             while let Some((file_info_index, block_info)) = files_iter.next() {
                 let mut free_iter = free_blocks.iter().enumerate();
                 let mut free_block_to_cleanup = None;
+                let mut free_block_new_info = None;
                 while let Some((info_index, free_block_info)) = free_iter.next() {
                     if block_info.size <= free_block_info.size {
                         println!(
@@ -166,12 +167,12 @@ impl DiskMap {
                             free_block_info.starting_index, block_info.size
                         );
 
-                        free_block_to_cleanup = Some(info_index);
-
                         // actual move
                         let to_start_index = free_block_info.starting_index;
                         let from_start_index = block_info.starting_index;
+                        let to_size = free_block_info.size;
                         let from_size = block_info.size;
+                        let padding = to_size - from_size;
 
                         for ix in 0..from_size {
                             self.blocks[to_start_index + ix].id_number =
@@ -179,6 +180,9 @@ impl DiskMap {
 
                             self.blocks[from_start_index + ix].id_number = None;
                         }
+
+                        free_block_to_cleanup = Some(info_index);
+                        free_block_new_info = Some(padding);
 
                         break;
                     } else {
@@ -191,7 +195,16 @@ impl DiskMap {
 
                 if let Some(free_index) = free_block_to_cleanup {
                     // update cache first
-                    free_blocks.remove(free_index);
+                    if let Some(padding) = free_block_new_info {
+                        let new_start = free_blocks[free_index].starting_index
+                            + free_blocks[free_index].size
+                            - padding;
+                        free_blocks[free_index].starting_index = new_start;
+                        free_blocks[free_index].size = padding;
+                    } else {
+                        free_blocks.remove(free_index);
+                    }
+
                     println!("Moving file ...");
                 }
             }

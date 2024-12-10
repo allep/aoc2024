@@ -154,11 +154,11 @@ impl DiskMap {
         if let (Some(free_blocks), Some(file_blocks)) =
             (&mut self.free_blocks_cache, &mut self.file_blocks_cache)
         {
-            let mut files_iter = file_blocks.iter().rev();
+            let mut files_iter = file_blocks.iter().rev().enumerate();
 
-            while let Some(block_info) = files_iter.next() {
+            while let Some((file_info_index, block_info)) = files_iter.next() {
                 let mut free_iter = free_blocks.iter().enumerate();
-                let mut free_block_to_move = None;
+                let mut free_block_to_cleanup = None;
                 while let Some((info_index, free_block_info)) = free_iter.next() {
                     if block_info.size <= free_block_info.size {
                         println!(
@@ -166,7 +166,19 @@ impl DiskMap {
                             free_block_info.starting_index, block_info.size
                         );
 
-                        free_block_to_move = Some(info_index);
+                        free_block_to_cleanup = Some(info_index);
+
+                        // actual move
+                        let to_start_index = free_block_info.starting_index;
+                        let from_start_index = block_info.starting_index;
+                        let from_size = block_info.size;
+
+                        for ix in 0..from_size {
+                            self.blocks[to_start_index + ix].id_number =
+                                self.blocks[from_start_index + ix].id_number;
+
+                            self.blocks[from_start_index + ix].id_number = None;
+                        }
 
                         break;
                     } else {
@@ -177,8 +189,9 @@ impl DiskMap {
                     }
                 }
 
-                if let Some(index) = free_block_to_move {
-                    free_blocks.remove(index);
+                if let Some(free_index) = free_block_to_cleanup {
+                    // update cache first
+                    free_blocks.remove(free_index);
                     println!("Moving file ...");
                 }
             }

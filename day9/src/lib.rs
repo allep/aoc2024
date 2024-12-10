@@ -52,12 +52,14 @@ impl DiskMap {
 
                     id_number += 1;
                 } else {
-                    free_blocks.push(FreeBlockInfo {
-                        starting_index: usize::try_from(running_starting_index).unwrap(),
-                        size: usize::try_from(num_blocks).unwrap(),
-                    });
-                    for ix in 0..num_blocks {
-                        blocks.push(Block { id_number: None });
+                    if num_blocks > 0 {
+                        free_blocks.push(FreeBlockInfo {
+                            starting_index: usize::try_from(running_starting_index).unwrap(),
+                            size: usize::try_from(num_blocks).unwrap(),
+                        });
+                        for ix in 0..num_blocks {
+                            blocks.push(Block { id_number: None });
+                        }
                     }
                 }
 
@@ -85,6 +87,18 @@ impl DiskMap {
                 }
             }
         }
+        representation
+    }
+
+    pub fn free_blocks_info_to_string(&self) -> String {
+        let mut representation = String::new();
+
+        if let Some(free_blocks) = &self.free_blocks_cache {
+            for f in free_blocks {
+                representation += &format!("[start = {}, num = {}]\n", f.starting_index, f.size);
+            }
+        }
+
         representation
     }
 
@@ -178,6 +192,11 @@ mod tests {
         assert_eq!(
             disk_map.to_string(),
             String::from("00...111...2...333.44.5555.6666.777.888899")
+        );
+
+        println!(
+            "Free blocks info:\n{}",
+            disk_map.free_blocks_info_to_string()
         );
 
         disk_map.defrag_simple();

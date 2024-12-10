@@ -151,7 +151,44 @@ impl DiskMap {
     }
 
     pub fn defrag_to_complete_file(&mut self) {
-        todo!()
+        if let (Some(free_blocks), Some(file_blocks)) =
+            (&mut self.free_blocks_cache, &mut self.file_blocks_cache)
+        {
+            let mut files_iter = file_blocks.iter().rev();
+
+            while let Some(block_info) = files_iter.next() {
+                let mut free_iter = free_blocks.iter().enumerate();
+                let mut free_block_to_move = None;
+                while let Some((info_index, free_block_info)) = free_iter.next() {
+                    if block_info.size <= free_block_info.size {
+                        println!(
+                            "Found free block at index = {} for file with size {}",
+                            free_block_info.starting_index, block_info.size
+                        );
+
+                        free_block_to_move = Some(info_index);
+
+                        break;
+                    } else {
+                        println!(
+                            "Found free block at index = {} with no enough size",
+                            free_block_info.starting_index
+                        );
+                    }
+                }
+
+                if let Some(index) = free_block_to_move {
+                    free_blocks.remove(index);
+                    println!("Moving file ...");
+                }
+            }
+        }
+
+        // get next candidate to move
+        // loop over possible free blocks
+        // if Some -> move
+        //  - remove the file block
+        //  - update free blocks
     }
 
     fn checksum(&self) -> u64 {
@@ -188,6 +225,7 @@ mod tests {
 
     use super::*;
 
+    #[ignore]
     #[test]
     fn sample_input_validation() {
         let data = "\

@@ -33,7 +33,22 @@ impl AntennasMap {
             .map(|s| s.to_string())
             .collect();
 
+        let antennas_positions = Self::compute_antenna_positions(&lines);
+
         Ok(AntennasMap { lines })
+    }
+
+    fn compute_antenna_positions(lines: &Vec<String>) -> Vec<(usize, usize)> {
+        let mut positions = Vec::new();
+        for (y, l) in lines.iter().enumerate() {
+            for (x, c) in l.char_indices() {
+                if c.is_ascii_alphanumeric() {
+                    positions.push((x, y));
+                }
+            }
+        }
+
+        positions
     }
 
     fn compute(&self, word: &str) -> u32 {

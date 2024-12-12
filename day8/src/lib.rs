@@ -100,14 +100,15 @@ impl AntennasMapFactory {
                 for other_position in other_positions {
                     let distance = Self::compute_distance(*position, *other_position);
 
-                    let antinodes = Self::compute_antinodes_for_antenna_pair(
+                    let mut antinodes = Self::compute_antinodes_for_antenna_pair(
                         *position,
                         *other_position,
                         distance,
+                        x_max,
+                        y_max,
                     );
 
-                    let mut valid = Self::filter_valid_antinodes(antinodes, x_max, y_max);
-                    antinodes_for_frequency.append(&mut valid);
+                    antinodes_for_frequency.append(&mut antinodes);
                 }
             }
 
@@ -127,21 +128,59 @@ impl AntennasMapFactory {
         )
     }
 
+    fn is_valid_antinode(position: (i32, i32), x_max: usize, y_max: usize) -> bool {
+        position.0 >= 0
+            && usize::try_from(position.0).unwrap() < x_max
+            && position.1 >= 0
+            && usize::try_from(position.1).unwrap() < y_max
+    }
+
     fn compute_antinodes_for_antenna_pair(
         first_antenna: (usize, usize),
         second_antenna: (usize, usize),
         distance: (i32, i32),
-    ) -> Vec<(i32, i32)> {
-        vec![
-            (
-                i32::try_from(first_antenna.0).unwrap() - distance.0,
-                i32::try_from(first_antenna.1).unwrap() - distance.1,
-            ),
-            (
-                i32::try_from(second_antenna.0).unwrap() + distance.0,
-                i32::try_from(second_antenna.1).unwrap() + distance.1,
-            ),
-        ]
+        x_max: usize,
+        y_max: usize,
+    ) -> Vec<(usize, usize)> {
+        let mut antinodes = Vec::new();
+
+        let mut antinode = (
+            i32::try_from(first_antenna.0).unwrap(),
+            i32::try_from(first_antenna.1).unwrap(),
+        );
+
+        loop {
+            antinode = (antinode.0 - distance.0, antinode.1 - distance.1);
+            if Self::is_valid_antinode(antinode, x_max, y_max) {
+                antinodes.push(antinode);
+            } else {
+                break;
+            }
+        }
+
+        let mut antinode = (
+            i32::try_from(second_antenna.0).unwrap(),
+            i32::try_from(second_antenna.1).unwrap(),
+        );
+
+        loop {
+            antinode = (antinode.0 + distance.0, antinode.1 + distance.1);
+            if Self::is_valid_antinode(antinode, x_max, y_max) {
+                antinodes.push(antinode);
+            } else {
+                break;
+            }
+        }
+
+        antinodes
+            .iter()
+            .map(|position| {
+                (
+                    usize::try_from(position.0).unwrap(),
+                    usize::try_from(position.1).unwrap(),
+                )
+            })
+            .collect()
     }
 
     fn filter_valid_antinodes(
@@ -151,11 +190,7 @@ impl AntennasMapFactory {
     ) -> Vec<(usize, usize)> {
         let mut valid = Vec::new();
         for a in antinodes {
-            if a.0 >= 0
-                && usize::try_from(a.0).unwrap() < x_max
-                && a.1 >= 0
-                && usize::try_from(a.1).unwrap() < y_max
-            {
+            if Self::is_valid_antinode(a, x_max, y_max) {
                 valid.push((usize::try_from(a.0).unwrap(), usize::try_from(a.1).unwrap()));
             }
         }
@@ -200,6 +235,6 @@ mod tests {
 ............";
 
         let antennas_map = AntennasMapFactory::make(data).unwrap();
-        assert_eq!(antennas_map.count_unique_antinodes(), 14);
+        assert_eq!(antennas_map.count_unique_antinodes(), 34);
     }
 }

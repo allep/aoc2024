@@ -55,6 +55,13 @@ impl TopographicMap {
         })
     }
 
+    fn is_position_valid(&self, position: (i32, i32)) -> bool {
+        position.0 >= 0
+            && usize::try_from(position.0).unwrap() < self.x_max
+            && position.1 >= 0
+            && usize::try_from(position.1).unwrap() < self.y_max
+    }
+
     fn compute_trailheads(&mut self) {
         for (y, line) in self.positions.iter().enumerate() {
             for (x, c) in line.iter().enumerate() {

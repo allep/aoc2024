@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fs;
 use std::hash::Hash;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
@@ -165,9 +166,11 @@ impl AntennasMapFactory {
 
 impl AntennasMap {}
 
-pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    // TODO
-    Ok(())
+pub fn run(config: Config) -> Result<(usize), Box<dyn Error>> {
+    let raw_content = fs::read_to_string(config.puzzle_input)?;
+    let antennas_map = AntennasMapFactory::make(&raw_content).unwrap();
+    let unique_antinodes = antennas_map.count_unique_antinodes();
+    Ok((unique_antinodes))
 }
 
 // Note on printing during tests:

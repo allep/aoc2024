@@ -28,6 +28,12 @@ struct TopographicMap {
     trailheads: Vec<(usize, usize)>,
 }
 
+struct TrailPosition {
+    height: u32,
+    position: (usize, usize),
+    next: Option<Vec<Box<TrailPosition>>>,
+}
+
 impl TopographicMap {
     pub fn make(raw_data: &str) -> Result<TopographicMap, &'static str> {
         let positions: Vec<Vec<char>> = raw_data
@@ -62,6 +68,21 @@ impl TopographicMap {
             && usize::try_from(position.1).unwrap() < self.y_max
     }
 
+    fn is_expected_height_at_position(
+        &self,
+        position: &(usize, usize),
+        expected_height: u32,
+    ) -> bool {
+        assert!(position.0 < self.x_max);
+        assert!(position.1 < self.y_max);
+
+        self.positions[position.0][position.1].to_digit(10).unwrap() == expected_height
+    }
+
+    fn get_next_height(&self, current_height: u32) -> u32 {
+        current_height + 1
+    }
+
     fn compute_trailheads(&mut self) {
         for (y, line) in self.positions.iter().enumerate() {
             for (x, c) in line.iter().enumerate() {
@@ -70,6 +91,105 @@ impl TopographicMap {
                 }
             }
         }
+
+        // TODO FIXME
+        for th in self.trailheads.iter() {
+            let ht = self.compute_hiking_trail(*th, None, 0);
+        }
+    }
+
+    fn compute_hiking_trail(
+        &self,
+        current: (usize, usize),
+        from: Option<(usize, usize)>,
+        current_height: u32,
+    ) -> TrailPosition {
+        let possible_positions = self.get_possible_valid_positions(&current, from, current_height);
+
+        if let None = possible_positions {
+            return TrailPosition {
+                height: current_height,
+                position: current,
+                next: None,
+            };
+        }
+
+        let mut next = None;
+        if let Some(positions) = possible_positions {
+            let mut trails = Vec::new();
+            for p in positions.iter() {
+                let trail = self.compute_hiking_trail(
+                    *p,
+                    Some(current),
+                    self.get_next_height(current_height),
+                );
+
+                trails.push(Box::new(trail));
+            }
+
+            if !trails.is_empty() {
+                next = Some(trails);
+            }
+        }
+
+        TrailPosition {
+            height: current_height,
+            position: current,
+            next,
+        }
+    }
+
+    fn get_possible_valid_positions(
+        &self,
+        current_pos: &(usize, usize),
+        from: Option<(usize, usize)>,
+        current_height: u32,
+    ) -> Option<Vec<(usize, usize)>> {
+        let candidates: Vec<(i32, i32)> = vec![
+            (
+                i32::try_from(current_pos.0).unwrap() - 1,
+                i32::try_from(current_pos.1).unwrap(),
+            ),
+            (
+                i32::try_from(current_pos.0).unwrap(),
+                i32::try_from(current_pos.1).unwrap() - 1,
+            ),
+            (
+                i32::try_from(current_pos.0).unwrap() + 1,
+                i32::try_from(current_pos.1).unwrap(),
+            ),
+            (
+                i32::try_from(current_pos.0).unwrap(),
+                i32::try_from(current_pos.1 + 1).unwrap(),
+            ),
+        ];
+
+        let candidates: Vec<(usize, usize)> = candidates
+            .iter()
+            .filter(|position| self.is_position_valid(**position))
+            .map(|position| {
+                (
+                    usize::try_from(position.0).unwrap(),
+                    usize::try_from(position.1).unwrap(),
+                )
+            })
+            .filter(|position| {
+                let next_height = self.get_next_height(current_height);
+                self.is_expected_height_at_position(position, next_height)
+            })
+            .filter(|position| {
+                if let Some(from_position) = from {
+                    return from_position != *position;
+                }
+                return true;
+            })
+            .collect();
+
+        if candidates.is_empty() {
+            return None;
+        }
+
+        Some(candidates)
     }
 
     fn trailheads_num(&self) -> usize {

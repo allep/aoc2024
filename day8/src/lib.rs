@@ -25,8 +25,10 @@ struct AntennasMap {
     lines: Vec<String>,
 }
 
-impl AntennasMap {
-    fn build(raw_content: &str) -> Result<AntennasMap, &'static str> {
+struct AntennasMapFactory {}
+
+impl AntennasMapFactory {
+    pub fn make(raw_content: &str) -> Result<AntennasMap, &'static str> {
         let lines: Vec<String> = raw_content
             .trim()
             .split("\n")
@@ -35,9 +37,29 @@ impl AntennasMap {
 
         let antennas_positions = Self::compute_antenna_positions(&lines);
 
-        Ok(AntennasMap { lines })
+        todo!();
     }
 
+    fn compute_antenna_positions(lines: &Vec<String>) -> HashMap<char, Vec<(usize, usize)>> {
+        let mut positions = HashMap::new();
+        for (y, l) in lines.iter().enumerate() {
+            println!("Considering {l}");
+            for (x, c) in l.char_indices() {
+                if c.is_ascii_alphanumeric() {
+                    println!(" - Found antenna {c} at position {:?}", (x, y));
+                    positions
+                        .entry(c)
+                        .and_modify(|list: &mut Vec<(usize, usize)>| list.push((x, y)))
+                        .or_insert(vec![(x, y)]);
+                }
+            }
+        }
+
+        positions
+    }
+}
+
+impl AntennasMap {
     fn compute_antenna_positions(lines: &Vec<String>) -> Vec<(usize, usize)> {
         let mut positions = Vec::new();
         for (y, l) in lines.iter().enumerate() {
@@ -96,4 +118,23 @@ mod tests {
     use io::BufReader;
 
     use super::*;
+
+    #[test]
+    fn compute_antenna_positions_test() {
+        let data = "\
+..........
+..........
+..........
+....a.....
+........a.
+.....a....
+..........
+......A...
+..........
+..........";
+
+        let positions = AntennasMapFactory::make(data).unwrap();
+
+        dbg!(positions);
+    }
 }

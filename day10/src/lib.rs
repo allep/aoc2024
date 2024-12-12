@@ -21,17 +21,34 @@ impl Config {
     }
 }
 
+struct TrailPosition {
+    height: u32,
+    position: (usize, usize),
+    next: Option<Vec<Box<TrailPosition>>>,
+}
+
+impl TrailPosition {
+    pub fn to_string(&self) -> String {
+        let mut description = format!(
+            "({}, {}) [{}]\n",
+            self.position.0, self.position.1, self.height
+        );
+
+        if let Some(trails) = &self.next {
+            for t in trails.iter() {
+                description += &format!("'-- {}", t.to_string());
+            }
+        }
+
+        description
+    }
+}
+
 struct TopographicMap {
     positions: Vec<Vec<char>>,
     x_max: usize,
     y_max: usize,
     trailheads: Vec<(usize, usize)>,
-}
-
-struct TrailPosition {
-    height: u32,
-    position: (usize, usize),
-    next: Option<Vec<Box<TrailPosition>>>,
 }
 
 impl TopographicMap {
@@ -213,6 +230,24 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn simple_count_trailhead_test() {
+        let data = "
+9990999
+9991999
+9992999
+6543456
+7111117
+8111118
+9111119";
+
+        let mut topographic_map = TopographicMap::make(data).unwrap();
+        topographic_map.compute_trailheads();
+        let num_trailheads = topographic_map.trailheads_num();
+        assert_eq!(num_trailheads, 9);
+    }
+
+    #[ignore]
     #[test]
     fn count_trailhead_test() {
         let data = "

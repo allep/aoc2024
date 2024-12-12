@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::hash::Hash;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
 
@@ -21,8 +22,21 @@ impl Config {
 }
 
 #[derive(Debug)]
-struct AntennasMap {
-    lines: Vec<String>,
+pub struct AntennasMap {
+    antinodes_positions: HashMap<char, Vec<(usize, usize)>>,
+}
+
+impl AntennasMap {
+    pub fn count_unique_antinodes(&self) -> usize {
+        let mut unique_antinodes = HashSet::new();
+        self.antinodes_positions.iter().for_each(|element| {
+            element.1.iter().for_each(|pos| {
+                unique_antinodes.insert(*pos);
+            })
+        });
+
+        unique_antinodes.len()
+    }
 }
 
 struct AntennasMapFactory {}
@@ -35,18 +49,31 @@ impl AntennasMapFactory {
             .map(|s| s.to_string())
             .collect();
 
-        let antennas_positions = Self::compute_antenna_positions(&lines);
+        if lines.len() == 0 {
+            return Err("No lines read from raw content.");
+        }
 
-        todo!();
+        if lines[0].len() == 0 {
+            return Err("Read empty line.");
+        }
+
+        let y_max = lines.len();
+        let x_max = lines[0].len();
+
+        let antennas_positions = Self::compute_antenna_positions(&lines);
+        let antinodes_positions =
+            Self::compute_antinode_positions(antennas_positions, x_max, y_max);
+
+        Ok(AntennasMap {
+            antinodes_positions,
+        })
     }
 
     fn compute_antenna_positions(lines: &Vec<String>) -> HashMap<char, Vec<(usize, usize)>> {
         let mut positions = HashMap::new();
         for (y, l) in lines.iter().enumerate() {
-            println!("Considering {l}");
             for (x, c) in l.char_indices() {
                 if c.is_ascii_alphanumeric() {
-                    println!(" - Found antenna {c} at position {:?}", (x, y));
                     positions
                         .entry(c)
                         .and_modify(|list: &mut Vec<(usize, usize)>| list.push((x, y)))
@@ -57,52 +84,86 @@ impl AntennasMapFactory {
 
         positions
     }
-}
 
-impl AntennasMap {
-    fn compute_antenna_positions(lines: &Vec<String>) -> Vec<(usize, usize)> {
-        let mut positions = Vec::new();
-        for (y, l) in lines.iter().enumerate() {
-            for (x, c) in l.char_indices() {
-                if c.is_ascii_alphanumeric() {
-                    positions.push((x, y));
+    fn compute_antinode_positions(
+        antennas_positions: HashMap<char, Vec<(usize, usize)>>,
+        x_max: usize,
+        y_max: usize,
+    ) -> HashMap<char, Vec<(usize, usize)>> {
+        let mut antinodes_map = HashMap::new();
+        for (frequency, positions) in antennas_positions {
+            let mut antinodes_for_frequency = Vec::new();
+            for (index, position) in positions.iter().enumerate() {
+                let other_positions = &positions[index + 1..];
+
+                for other_position in other_positions {
+                    let distance = Self::compute_distance(*position, *other_position);
+
+                    let antinodes = Self::compute_antinodes_for_antenna_pair(
+                        *position,
+                        *other_position,
+                        distance,
+                    );
+
+                    let mut valid = Self::filter_valid_antinodes(antinodes, x_max, y_max);
+                    antinodes_for_frequency.append(&mut valid);
                 }
+            }
+
+            antinodes_map.insert(frequency, antinodes_for_frequency);
+        }
+
+        antinodes_map
+    }
+
+    fn compute_distance(
+        first_antenna: (usize, usize),
+        second_antenna: (usize, usize),
+    ) -> (i32, i32) {
+        (
+            i32::try_from(second_antenna.0).unwrap() - i32::try_from(first_antenna.0).unwrap(),
+            i32::try_from(second_antenna.1).unwrap() - i32::try_from(first_antenna.1).unwrap(),
+        )
+    }
+
+    fn compute_antinodes_for_antenna_pair(
+        first_antenna: (usize, usize),
+        second_antenna: (usize, usize),
+        distance: (i32, i32),
+    ) -> Vec<(i32, i32)> {
+        vec![
+            (
+                i32::try_from(first_antenna.0).unwrap() - distance.0,
+                i32::try_from(first_antenna.1).unwrap() - distance.1,
+            ),
+            (
+                i32::try_from(second_antenna.0).unwrap() + distance.0,
+                i32::try_from(second_antenna.1).unwrap() + distance.1,
+            ),
+        ]
+    }
+
+    fn filter_valid_antinodes(
+        antinodes: Vec<(i32, i32)>,
+        x_max: usize,
+        y_max: usize,
+    ) -> Vec<(usize, usize)> {
+        let mut valid = Vec::new();
+        for a in antinodes {
+            if a.0 >= 0
+                && usize::try_from(a.0).unwrap() < x_max
+                && a.1 >= 0
+                && usize::try_from(a.1).unwrap() < y_max
+            {
+                valid.push((usize::try_from(a.0).unwrap(), usize::try_from(a.1).unwrap()));
             }
         }
 
-        positions
-    }
-
-    fn compute(&self, word: &str) -> u32 {
-        let key_letters = word.as_bytes();
-        let c = key_letters[0] as char;
-        let positions = self.get_positions(c);
-
-        todo!();
-    }
-
-    fn get_positions(&self, letter: char) -> Vec<(usize, usize)> {
-        let mut positions = Vec::new();
-        self.lines
-            .iter()
-            .enumerate()
-            .for_each(|(line_number, &ref line)| {
-                line.match_indices(letter)
-                    .for_each(|(column, &ref c)| positions.push((line_number, column)));
-            });
-
-        positions
-    }
-
-    fn get_letter(&self, position: (usize, usize)) -> char {
-        let num_lines = self.lines.len();
-        let line_length = self.lines[0].len();
-        assert!(position.0 < num_lines, "x = {}", position.0);
-        assert!(position.1 < line_length, "y = {}", position.1);
-
-        self.lines[position.0].as_bytes()[position.1] as char
+        valid
     }
 }
+
+impl AntennasMap {}
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     // TODO
@@ -122,19 +183,20 @@ mod tests {
     #[test]
     fn compute_antenna_positions_test() {
         let data = "\
-..........
-..........
-..........
-....a.....
-........a.
-.....a....
-..........
-......A...
-..........
-..........";
+............
+........0...
+.....0......
+.......0....
+....0.......
+......A.....
+............
+............
+........A...
+.........A..
+............
+............";
 
-        let positions = AntennasMapFactory::make(data).unwrap();
-
-        dbg!(positions);
+        let antennas_map = AntennasMapFactory::make(data).unwrap();
+        assert_eq!(antennas_map.count_unique_antinodes(), 14);
     }
 }

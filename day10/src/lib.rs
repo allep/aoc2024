@@ -1,5 +1,5 @@
-use csv::Reader;
-use serde::de::DeserializeOwned;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
@@ -27,28 +27,12 @@ struct TrailPosition {
     next: Option<Vec<Box<TrailPosition>>>,
 }
 
-impl TrailPosition {
-    pub fn to_string(&self) -> String {
-        let mut description = format!(
-            "({}, {}) [{}]\n",
-            self.position.0, self.position.1, self.height
-        );
-
-        if let Some(trails) = &self.next {
-            for t in trails.iter() {
-                description += &format!("'-- {}", t.to_string());
-            }
-        }
-
-        description
-    }
-}
-
 struct TopographicMap {
     positions: Vec<Vec<char>>,
     x_max: usize,
     y_max: usize,
     trailheads: Vec<(usize, usize)>,
+    scores: HashMap<(usize, usize), HashSet<(usize, usize)>>,
 }
 
 impl TopographicMap {
@@ -75,6 +59,7 @@ impl TopographicMap {
             x_max,
             y_max,
             trailheads: Vec::new(),
+            scores: HashMap::new(),
         })
     }
 
@@ -110,17 +95,37 @@ impl TopographicMap {
         }
 
         // TODO FIXME
-        for th in self.trailheads.iter() {
-            let ht = self.compute_hiking_trail(*th, None, 0);
+        println!("Computing hiking trails ...");
+        let trailheads = self.trailheads.clone();
+        for th in trailheads.iter() {
+            let ht = self.compute_hiking_trail_recursive(*th, *th, None, 0);
+        }
+
+        println!("Printing scores ...");
+        for s in &self.scores {
+            println!("Trailhead {:?} has score {}", s.0, s.1.len());
         }
     }
 
-    fn compute_hiking_trail(
-        &self,
+    fn compute_hiking_trail_recursive(
+        &mut self,
+        trailhead: (usize, usize),
         current: (usize, usize),
         from: Option<(usize, usize)>,
         current_height: u32,
     ) -> TrailPosition {
+        println!("Current height = {}", current_height);
+        if current_height == 9 {
+            // found top
+            self.scores
+                .entry(trailhead)
+                .and_modify(|set| {
+                    set.insert(current);
+                })
+                .or_insert(HashSet::new());
+        }
+
+        println!("Getting possible positions");
         let possible_positions = self.get_possible_valid_positions(&current, from, current_height);
 
         if let None = possible_positions {
@@ -131,11 +136,13 @@ impl TopographicMap {
             };
         }
 
+        println!("Looping on possible positions");
         let mut next = None;
         if let Some(positions) = possible_positions {
             let mut trails = Vec::new();
             for p in positions.iter() {
-                let trail = self.compute_hiking_trail(
+                let trail = self.compute_hiking_trail_recursive(
+                    trailhead,
                     *p,
                     Some(current),
                     self.get_next_height(current_height),
@@ -181,6 +188,8 @@ impl TopographicMap {
             ),
         ];
 
+        dbg!(&candidates);
+
         let candidates: Vec<(usize, usize)> = candidates
             .iter()
             .filter(|position| self.is_position_valid(**position))
@@ -203,6 +212,7 @@ impl TopographicMap {
             .collect();
 
         if candidates.is_empty() {
+            println!("No candidates!");
             return None;
         }
 

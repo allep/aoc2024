@@ -1,17 +1,18 @@
 use csv::Reader;
 use io::BufReader;
 use serde::de::DeserializeOwned;
+use std::cmp;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
 
 #[derive(Debug, serde::Deserialize)]
 struct ClawMachineConfiguration {
-    a_x: u32,
-    a_y: u32,
-    b_x: u32,
-    b_y: u32,
-    p_x: u32,
-    p_y: u32,
+    a_x: u64,
+    a_y: u64,
+    b_x: u64,
+    b_y: u64,
+    p_x: u64,
+    p_y: u64,
 }
 
 #[derive(Debug)]
@@ -32,11 +33,11 @@ impl Config {
 }
 
 struct ClawMachine {
-    button_a: (u32, u32),
-    button_b: (u32, u32),
-    prize: (u32, u32),
-    button_a_cost: u32,
-    button_b_cost: u32,
+    button_a: (u64, u64),
+    button_b: (u64, u64),
+    prize: (u64, u64),
+    button_a_cost: u64,
+    button_b_cost: u64,
 }
 
 impl ClawMachine {
@@ -45,12 +46,21 @@ impl ClawMachine {
             button_a: (config.a_x, config.a_y),
             button_b: (config.b_x, config.b_y),
             prize: (config.p_x, config.p_y),
-            button_a_cost: 3u32,
-            button_b_cost: 1u32,
+            button_a_cost: 3u64,
+            button_b_cost: 1u64,
         })
     }
 
-    fn get_cost_for_cheapest_combination(&self) -> Option<u32> {
+    fn get_cost_for_cheapest_combination_heuristic(&self) -> Option<u64> {
+        if let Some(cheapest) = self.compute_cheapest_combination_heuristic() {
+            let cost = cheapest.0 * self.button_a_cost + cheapest.1 * self.button_b_cost;
+            return Some(cost);
+        }
+
+        None
+    }
+
+    fn get_cost_for_cheapest_combination(&self) -> Option<u64> {
         if let Some(cheapest) = self.compute_cheapest_combination() {
             let cost = cheapest.0 * self.button_a_cost + cheapest.1 * self.button_b_cost;
             return Some(cost);
@@ -59,7 +69,17 @@ impl ClawMachine {
         None
     }
 
-    fn compute_cheapest_combination(&self) -> Option<(u32, u32)> {
+    fn compute_cheapest_combination_heuristic(&self) -> Option<(u64, u64)> {
+        let combinations = self.compute_heuristic_combinations();
+
+        if let Some(combinations) = combinations {
+            return Some(self.get_cheapest_combination(combinations));
+        }
+
+        None
+    }
+
+    fn compute_cheapest_combination(&self) -> Option<(u64, u64)> {
         let combinations = self.compute_all_combinations();
 
         if let Some(combinations) = combinations {
@@ -69,10 +89,52 @@ impl ClawMachine {
         None
     }
 
-    fn compute_all_combinations(&self) -> Option<Vec<(u32, u32)>> {
+    fn compute_heuristic_combinations(&self) -> Option<Vec<(u64, u64)>> {
         let mut combinations = Vec::new();
-        for ix in 0u32..=100 {
-            for iy in 0u32..=100 {
+
+        let start_a_x = self.prize.0 / self.button_a.0;
+        let start_a_y = self.prize.1 / self.button_a.1;
+        let start_b_x = self.prize.0 / self.button_b.0;
+        let start_b_y = self.prize.1 / self.button_b.1;
+
+        let start_x = cmp::min(start_a_x, start_b_x);
+        let start_y = cmp::min(start_a_y, start_b_y);
+
+        println!(
+            "Found {}, {}, {}, {}",
+            start_a_x, start_a_y, start_b_x, start_b_y
+        );
+
+        for ix in 0u64..=100000000 {
+            for iy in 0u64..=10000000 {
+                let pos = (
+                    (start_x + ix) * self.button_a.0 + (start_y + iy) * self.button_b.0,
+                    (start_x + ix) * self.button_a.1 + (start_y + iy) * self.button_b.1,
+                );
+
+                if pos == self.prize {
+                    combinations.push((ix, iy));
+                    break;
+                }
+
+                if pos > self.prize {
+                    break;
+                }
+            }
+        }
+
+        if combinations.is_empty() {
+            println!("Didn't find any result ...");
+            return None;
+        }
+
+        Some(combinations)
+    }
+
+    fn compute_all_combinations(&self) -> Option<Vec<(u64, u64)>> {
+        let mut combinations = Vec::new();
+        for ix in 0u64..=100 {
+            for iy in 0u64..=100 {
                 let pos = (
                     ix * self.button_a.0 + iy * self.button_b.0,
                     ix * self.button_a.1 + iy * self.button_b.1,
@@ -96,7 +158,7 @@ impl ClawMachine {
         Some(combinations)
     }
 
-    fn get_cheapest_combination(&self, combinations: Vec<(u32, u32)>) -> (u32, u32) {
+    fn get_cheapest_combination(&self, combinations: Vec<(u64, u64)>) -> (u64, u64) {
         let mut cheapest = (0, 0);
         let mut cheapest_cost = 400;
         for c in combinations {
@@ -127,7 +189,7 @@ where
     Ok(structs)
 }
 
-pub fn run(config: Config) -> Result<(u32), Box<dyn Error>> {
+pub fn run(config: Config) -> Result<(u64), Box<dyn Error>> {
     let file = File::open(config.puzzle_input)?;
     let reader = BufReader::new(file);
 
@@ -186,7 +248,7 @@ a_x,a_y,b_x,b_y,p_x,p_y
 17,86,84,37,7870,6450
 69,23,27,71,18641,10279";
 
-        let expected = vec![Some((80u32, 40u32)), None, Some((38u32, 86u32)), None];
+        let expected = vec![Some((80u64, 40u64)), None, Some((38u64, 86u64)), None];
 
         let cfgs: Vec<ClawMachineConfiguration> = deserialize(data.as_bytes()).unwrap();
 
@@ -198,6 +260,32 @@ a_x,a_y,b_x,b_y,p_x,p_y
             assert_eq!(cheapest, expected[index]);
 
             if let Some(cost) = machine.get_cost_for_cheapest_combination() {
+                total_cost += cost;
+            }
+        }
+
+        assert_eq!(total_cost, 480);
+    }
+
+    #[test]
+    fn sample_input_part2_test() {
+        let data = "\
+a_x,a_y,b_x,b_y,p_x,p_y
+94,34,22,67,10000000008400,10000000005400
+26,66,67,21,10000000012748,10000000012176
+17,86,84,37,10000000007870,10000000006450
+69,23,27,71,10000000018641,10000000010279";
+
+        let cfgs: Vec<ClawMachineConfiguration> = deserialize(data.as_bytes()).unwrap();
+
+        let mut total_cost = 0;
+        for (index, c) in cfgs.iter().enumerate() {
+            println!("Running machine {index}...");
+            let machine = ClawMachine::new(c).unwrap();
+            let cheapest = machine.compute_cheapest_combination();
+
+            if let Some(cost) = machine.get_cost_for_cheapest_combination_heuristic() {
+                println!("Found cost = {cost}");
                 total_cost += cost;
             }
         }

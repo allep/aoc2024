@@ -49,7 +49,16 @@ impl ClawMachine {
         })
     }
 
-    pub fn compute_cheapest_combination(&self) -> Option<(u32, u32)> {
+    fn get_cost_for_cheapest_combination(&self) -> Option<u32> {
+        if let Some(cheapest) = self.compute_cheapest_combination() {
+            let cost = cheapest.0 * self.button_a_cost + cheapest.1 * self.button_b_cost;
+            return Some(cost);
+        }
+
+        None
+    }
+
+    fn compute_cheapest_combination(&self) -> Option<(u32, u32)> {
         let combinations = self.compute_all_combinations();
 
         if let Some(combinations) = combinations {
@@ -168,11 +177,18 @@ a_x,a_y,b_x,b_y,p_x,p_y
 
         let cfgs: Vec<ClawMachineConfiguration> = deserialize(data.as_bytes()).unwrap();
 
+        let mut total_cost = 0;
         for (index, c) in cfgs.iter().enumerate() {
             let machine = ClawMachine::new(c).unwrap();
             let cheapest = machine.compute_cheapest_combination();
 
             assert_eq!(cheapest, expected[index]);
+
+            if let Some(cost) = machine.get_cost_for_cheapest_combination() {
+                total_cost += cost;
+            }
         }
+
+        assert_eq!(total_cost, 480);
     }
 }

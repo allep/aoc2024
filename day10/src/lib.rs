@@ -78,7 +78,8 @@ impl TopographicMap {
         assert!(position.0 < self.x_max);
         assert!(position.1 < self.y_max);
 
-        self.positions[position.0][position.1].to_digit(10).unwrap() == expected_height
+        let actual_height = self.positions[position.1][position.0].to_digit(10).unwrap();
+        actual_height == expected_height
     }
 
     fn get_next_height(&self, current_height: u32) -> u32 {
@@ -94,17 +95,19 @@ impl TopographicMap {
             }
         }
 
-        // TODO FIXME
-        println!("Computing hiking trails ...");
         let trailheads = self.trailheads.clone();
         for th in trailheads.iter() {
             let ht = self.compute_hiking_trail_recursive(*th, *th, None, 0);
         }
+    }
 
-        println!("Printing scores ...");
+    fn sum_scores(&self) -> u32 {
+        let mut total = 0u32;
         for s in &self.scores {
-            println!("Trailhead {:?} has score {}", s.0, s.1.len());
+            total += u32::try_from(s.1.len()).unwrap();
         }
+
+        total
     }
 
     fn compute_hiking_trail_recursive(
@@ -114,7 +117,6 @@ impl TopographicMap {
         from: Option<(usize, usize)>,
         current_height: u32,
     ) -> TrailPosition {
-        println!("Current height = {}", current_height);
         if current_height == 9 {
             // found top
             self.scores
@@ -122,10 +124,13 @@ impl TopographicMap {
                 .and_modify(|set| {
                     set.insert(current);
                 })
-                .or_insert(HashSet::new());
+                .or_insert({
+                    let mut set = HashSet::new();
+                    set.insert(current);
+                    set
+                });
         }
 
-        println!("Getting possible positions");
         let possible_positions = self.get_possible_valid_positions(&current, from, current_height);
 
         if let None = possible_positions {
@@ -136,7 +141,6 @@ impl TopographicMap {
             };
         }
 
-        println!("Looping on possible positions");
         let mut next = None;
         if let Some(positions) = possible_positions {
             let mut trails = Vec::new();
@@ -188,8 +192,6 @@ impl TopographicMap {
             ),
         ];
 
-        dbg!(&candidates);
-
         let candidates: Vec<(usize, usize)> = candidates
             .iter()
             .filter(|position| self.is_position_valid(**position))
@@ -212,7 +214,6 @@ impl TopographicMap {
             .collect();
 
         if candidates.is_empty() {
-            println!("No candidates!");
             return None;
         }
 
@@ -253,11 +254,14 @@ mod tests {
 
         let mut topographic_map = TopographicMap::make(data).unwrap();
         topographic_map.compute_trailheads();
+
         let num_trailheads = topographic_map.trailheads_num();
-        assert_eq!(num_trailheads, 9);
+        assert_eq!(num_trailheads, 1);
+
+        let tot_score = topographic_map.sum_scores();
+        assert_eq!(tot_score, 2);
     }
 
-    #[ignore]
     #[test]
     fn count_trailhead_test() {
         let data = "
@@ -272,7 +276,11 @@ mod tests {
 
         let mut topographic_map = TopographicMap::make(data).unwrap();
         topographic_map.compute_trailheads();
+
         let num_trailheads = topographic_map.trailheads_num();
         assert_eq!(num_trailheads, 9);
+
+        let tot_score = topographic_map.sum_scores();
+        assert_eq!(tot_score, 36);
     }
 }

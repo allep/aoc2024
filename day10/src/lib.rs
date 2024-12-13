@@ -227,8 +227,13 @@ impl TopographicMap {
 
 pub fn run(config: Config) -> Result<(u32), Box<dyn Error>> {
     let raw_content = fs::read_to_string(config.puzzle_input)?;
-    let result: u32 = 0;
-    Ok((result))
+
+    let mut topographic_map = TopographicMap::make(&raw_content).unwrap();
+    topographic_map.compute_trailheads();
+
+    let tot_score = topographic_map.sum_scores();
+
+    Ok((tot_score))
 }
 
 // Note on printing during tests:

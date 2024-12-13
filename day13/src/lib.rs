@@ -4,7 +4,7 @@ use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
 
 #[derive(Debug, serde::Deserialize)]
-struct Entry {
+struct ClawMachineConfiguration {
     a_x: u32,
     a_y: u32,
     b_x: u32,
@@ -27,6 +27,78 @@ impl Config {
         let puzzle_input = args[1].clone();
 
         Ok(Config { puzzle_input })
+    }
+}
+
+struct ClawMachine {
+    button_a: (u32, u32),
+    button_b: (u32, u32),
+    prize: (u32, u32),
+    button_a_cost: u32,
+    button_b_cost: u32,
+}
+
+impl ClawMachine {
+    pub fn new(config: &ClawMachineConfiguration) -> Result<ClawMachine, &'static str> {
+        Ok(ClawMachine {
+            button_a: (config.a_x, config.a_y),
+            button_b: (config.b_x, config.b_y),
+            prize: (config.p_x, config.p_y),
+            button_a_cost: 3u32,
+            button_b_cost: 1u32,
+        })
+    }
+
+    pub fn compute_cheapest_combination(&self) -> Option<(u32, u32)> {
+        let combinations = self.compute_all_combinations();
+
+        if let Some(combinations) = combinations {
+            return Some(self.get_cheapest_combination(combinations));
+        }
+
+        None
+    }
+
+    fn compute_all_combinations(&self) -> Option<Vec<(u32, u32)>> {
+        let mut combinations = Vec::new();
+        for ix in 0u32..=100 {
+            for iy in 0u32..=100 {
+                let pos = (
+                    ix * self.button_a.0 + iy * self.button_b.0,
+                    ix * self.button_a.1 + iy * self.button_b.1,
+                );
+
+                if pos == self.prize {
+                    combinations.push((ix, iy));
+                    break;
+                }
+
+                if pos > self.prize {
+                    break;
+                }
+            }
+        }
+
+        if combinations.is_empty() {
+            return None;
+        }
+
+        Some(combinations)
+    }
+
+    fn get_cheapest_combination(&self, combinations: Vec<(u32, u32)>) -> (u32, u32) {
+        let mut cheapest = (0, 0);
+        let mut cheapest_cost = 400;
+        for c in combinations {
+            let cost = c.0 * self.button_a_cost + c.1 * self.button_b_cost;
+
+            if cost < cheapest_cost {
+                cheapest = c;
+                cheapest_cost = cost;
+            }
+        }
+
+        cheapest
     }
 }
 
@@ -70,7 +142,7 @@ a_x,a_y,b_x,b_y,p_x,p_y
 75,72,95,15,8360,4749
 59,26,15,29,7401,3032";
 
-        let structs: Vec<Entry> = deserialize(data.as_bytes()).unwrap();
+        let structs: Vec<ClawMachineConfiguration> = deserialize(data.as_bytes()).unwrap();
     }
 
     #[test]
@@ -80,6 +152,27 @@ a_x,a_y,b_x,b_y,p_x,p_y
         let file = File::open("content/puzzle-input.txt").unwrap();
         let reader = BufReader::new(file);
 
-        let structs: Vec<Entry> = deserialize(reader).unwrap();
+        let structs: Vec<ClawMachineConfiguration> = deserialize(reader).unwrap();
+    }
+
+    #[test]
+    fn sample_input_test() {
+        let data = "\
+a_x,a_y,b_x,b_y,p_x,p_y
+94,34,22,67,8400,5400
+26,66,67,21,12748,12176
+17,86,84,37,7870,6450
+69,23,27,71,18641,10279";
+
+        let expected = vec![Some((80u32, 40u32)), None, Some((38u32, 86u32)), None];
+
+        let cfgs: Vec<ClawMachineConfiguration> = deserialize(data.as_bytes()).unwrap();
+
+        for (index, c) in cfgs.iter().enumerate() {
+            let machine = ClawMachine::new(c).unwrap();
+            let cheapest = machine.compute_cheapest_combination();
+
+            assert_eq!(cheapest, expected[index]);
+        }
     }
 }

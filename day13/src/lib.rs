@@ -1,4 +1,5 @@
 use csv::Reader;
+use io::BufReader;
 use serde::de::DeserializeOwned;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
@@ -126,9 +127,21 @@ where
     Ok(structs)
 }
 
-pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    // TODO
-    Ok(())
+pub fn run(config: Config) -> Result<(u32), Box<dyn Error>> {
+    let file = File::open(config.puzzle_input)?;
+    let reader = BufReader::new(file);
+
+    let cfgs: Vec<ClawMachineConfiguration> = deserialize(reader).unwrap();
+
+    let mut total_cost = 0;
+    for (index, c) in cfgs.iter().enumerate() {
+        let machine = ClawMachine::new(c).unwrap();
+        if let Some(cost) = machine.get_cost_for_cheapest_combination() {
+            total_cost += cost;
+        }
+    }
+
+    Ok((total_cost))
 }
 
 // Note on printing during tests:

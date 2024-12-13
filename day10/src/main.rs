@@ -5,8 +5,9 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     let args: Vec<String> = env::args().collect();
     let config = day10::Config::build(&args)?;
-    let (result) = day10::run(config)?;
+    let (result, ratings) = day10::run(config)?;
 
     println!("Total sum of scores:         {result}");
+    println!("Total sum of ratings:        {ratings}");
     Ok(())
 }

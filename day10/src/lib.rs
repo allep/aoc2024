@@ -33,6 +33,7 @@ struct TopographicMap {
     y_max: usize,
     trailheads: Vec<(usize, usize)>,
     scores: HashMap<(usize, usize), HashSet<(usize, usize)>>,
+    ratings: HashMap<(usize, usize), HashSet<Vec<(usize, usize)>>>,
 }
 
 impl TopographicMap {
@@ -60,6 +61,7 @@ impl TopographicMap {
             y_max,
             trailheads: Vec::new(),
             scores: HashMap::new(),
+            ratings: HashMap::new(),
         })
     }
 
@@ -97,7 +99,8 @@ impl TopographicMap {
 
         let trailheads = self.trailheads.clone();
         for th in trailheads.iter() {
-            let ht = self.compute_hiking_trail_recursive(*th, *th, None, 0);
+            let hiking_trail = vec![*th];
+            let ht = self.compute_hiking_trail_recursive(*th, hiking_trail, *th, None, 0);
         }
     }
 
@@ -110,9 +113,19 @@ impl TopographicMap {
         total
     }
 
+    fn sum_ratings(&self) -> u32 {
+        let mut total = 0u32;
+        for s in &self.ratings {
+            total += u32::try_from(s.1.len()).unwrap();
+        }
+
+        total
+    }
+
     fn compute_hiking_trail_recursive(
         &mut self,
         trailhead: (usize, usize),
+        hiking_trail: Vec<(usize, usize)>,
         current: (usize, usize),
         from: Option<(usize, usize)>,
         current_height: u32,
@@ -127,6 +140,17 @@ impl TopographicMap {
                 .or_insert({
                     let mut set = HashSet::new();
                     set.insert(current);
+                    set
+                });
+
+            self.ratings
+                .entry(trailhead)
+                .and_modify(|set| {
+                    set.insert(hiking_trail.clone());
+                })
+                .or_insert({
+                    let mut set = HashSet::new();
+                    set.insert(hiking_trail.clone());
                     set
                 });
         }
@@ -145,8 +169,12 @@ impl TopographicMap {
         if let Some(positions) = possible_positions {
             let mut trails = Vec::new();
             for p in positions.iter() {
+                let mut hiking_trail = hiking_trail.clone();
+                let new_pos = vec![*p];
+                hiking_trail.extend(&new_pos);
                 let trail = self.compute_hiking_trail_recursive(
                     trailhead,
+                    hiking_trail,
                     *p,
                     Some(current),
                     self.get_next_height(current_height),
@@ -225,15 +253,16 @@ impl TopographicMap {
     }
 }
 
-pub fn run(config: Config) -> Result<(u32), Box<dyn Error>> {
+pub fn run(config: Config) -> Result<(u32, u32), Box<dyn Error>> {
     let raw_content = fs::read_to_string(config.puzzle_input)?;
 
     let mut topographic_map = TopographicMap::make(&raw_content).unwrap();
     topographic_map.compute_trailheads();
 
     let tot_score = topographic_map.sum_scores();
+    let tot_ratings = topographic_map.sum_ratings();
 
-    Ok((tot_score))
+    Ok((tot_score, tot_ratings))
 }
 
 // Note on printing during tests:

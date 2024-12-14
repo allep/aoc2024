@@ -171,7 +171,12 @@ impl ClawMachine {
         let mut other_movement_diff = (0u64, 0u64);
 
         loop {
-            // FIXME: here it panics because we have a negative diff
+            // early break in case of odd values
+            if other_movement_diff.0 > self.prize.0 || other_movement_diff.1 > self.prize.1 {
+                println!("Can't reach the prize, breaking");
+                break;
+            }
+
             let updated_distance = (
                 self.prize.0 - other_movement_diff.0,
                 self.prize.1 - other_movement_diff.1,
@@ -179,9 +184,23 @@ impl ClawMachine {
             let steps_by_dimension = movement.get_steps_upper_bound(updated_distance);
             main_movement_steps_num = steps_by_dimension.get_steps();
 
+            let current_combination = (main_movement_steps_num, other_movement_steps_num);
+            println!(
+                "Current combination of steps: ({}, {})",
+                current_combination.0, current_combination.1
+            );
+
             let remainder = Self::get_remainder(self.prize, &movement, main_movement_steps_num);
 
-            // update
+            if let (0u64, 0u64) = remainder {
+                println!("Found prize, returning");
+
+                combinations.push(current_combination);
+                break;
+            }
+
+            // prize not found, move forward and update movements
+
             let next_movement = match movement {
                 Movement::A(_) => Movement::B(self.button_b),
                 Movement::B(_) => Movement::A(self.button_a),
@@ -200,43 +219,12 @@ impl ClawMachine {
 
             let other_cur_steps = other_dimension_steps.get_steps();
 
-            println!(
-                "Current combination of steps: ({}, {})",
-                main_movement_steps_num, other_cur_steps
-            );
-
-            if self.is_prize_reached(
-                &movement,
-                &next_movement,
-                main_movement_steps_num,
-                other_cur_steps,
-            ) {
-                println!(
-                    "Found combination! ({}, {})",
-                    main_movement_steps_num, other_cur_steps
-                );
-                combinations.push((main_movement_steps_num, other_cur_steps));
-                break;
-            }
-
-            if self.is_over_prize(
-                &movement,
-                &next_movement,
-                main_movement_steps_num,
-                other_cur_steps,
-            ) {
-                println!("No chance to reach prize, current position is over, breaking");
-                break;
-            }
-
             if other_cur_steps == other_movement_steps_num {
                 println!("No chance to reach prize, stuck in same position, breaking");
                 break;
             }
 
             other_movement_steps_num = other_cur_steps;
-            // FIXME: probably we need to choose either x or y based on whichever stays inside the
-            // range
             other_movement_diff = next_movement.get_distance_for_step(other_movement_steps_num);
         }
 

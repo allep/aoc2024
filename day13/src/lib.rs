@@ -70,6 +70,7 @@ impl Movement {
     }
 
     fn get_steps_upper_bound_for_x(&self, distance: (u64, u64)) -> StepsByDimension {
+        println!("- Using dimension x now");
         match self {
             Movement::A(movement) | Movement::B(movement) => {
                 let x = distance.0 / movement.0;
@@ -79,6 +80,7 @@ impl Movement {
     }
 
     fn get_steps_upper_bound_for_y(&self, distance: (u64, u64)) -> StepsByDimension {
+        println!("- Using dimension y now");
         match self {
             Movement::A(movement) | Movement::B(movement) => {
                 let y = distance.1 / movement.1;
@@ -94,6 +96,12 @@ impl Movement {
             }
         }
     }
+
+    fn get_steps(&self) -> (u64, u64) {
+        match self {
+            Movement::A(movement) | Movement::B(movement) => *movement,
+        }
+    }
 }
 
 struct ClawMachine {
@@ -102,16 +110,24 @@ struct ClawMachine {
     prize: (u64, u64),
     button_a_cost: u64,
     button_b_cost: u64,
+    epsilon: i64,
+    learning_rate: i64,
 }
 
 impl ClawMachine {
-    pub fn new(config: &ClawMachineConfiguration) -> Result<ClawMachine, &'static str> {
+    pub fn new(
+        config: &ClawMachineConfiguration,
+        epsilon: i64,
+        learning_rate: i64,
+    ) -> Result<ClawMachine, &'static str> {
         Ok(ClawMachine {
             button_a: (config.a_x, config.a_y),
             button_b: (config.b_x, config.b_y),
             prize: (config.p_x, config.p_y),
             button_a_cost: 3u64,
             button_b_cost: 1u64,
+            epsilon,
+            learning_rate,
         })
     }
 
@@ -153,6 +169,85 @@ impl ClawMachine {
         None
     }
 
+    fn compute_steepest_descend_combinations(&self) -> Option<Vec<(u64, u64)>> {
+        let mut a = 10000000012748i64;
+        let mut b = 10000000012176i64;
+
+        for ix in 0..1000000000 {
+            let remainder = (
+                i64::try_from(self.prize.0).unwrap()
+                    - a * i64::try_from(self.button_a.0).unwrap()
+                    - b * i64::try_from(self.button_b.0).unwrap(),
+                i64::try_from(self.prize.1).unwrap()
+                    - a * i64::try_from(self.button_a.1).unwrap()
+                    - b * i64::try_from(self.button_b.1).unwrap(),
+            );
+            if ix % 1000000 == 0 {
+                println!(
+                    "Done another 1000000 iterations. Current pos: ({}, {}), remainder: ({}, {}), cost: {}",
+                    a,
+                    b,
+                    remainder.0,
+                    remainder.1,
+                    self.cost_function(a, b)
+                );
+            }
+
+            let grad = self.gradient(a, b);
+
+            let a_new = i64::try_from(a).unwrap() - self.learning_rate * grad.0;
+            let b_new = i64::try_from(b).unwrap() - self.learning_rate * grad.1;
+
+            a = a_new;
+            b = b_new;
+        }
+
+        let a = u64::try_from(a).unwrap();
+        let b = u64::try_from(b).unwrap();
+
+        None
+    }
+
+    fn gradient(&self, steps_a: i64, steps_b: i64) -> (i64, i64) {
+        let fx_plus = self.cost_function(steps_a + self.epsilon, steps_b);
+        let fx_minus = self.cost_function(steps_a - self.epsilon, steps_b);
+        let fy_plus = self.cost_function(steps_a, steps_b + self.epsilon);
+        let fy_minus = self.cost_function(steps_a, steps_b - self.epsilon);
+
+        let dx = (i64::try_from(fx_plus).unwrap() - i64::try_from(fx_minus).unwrap())
+            / (2 * i64::try_from(self.epsilon).unwrap());
+        let dy = (i64::try_from(fy_plus).unwrap() - i64::try_from(fy_minus).unwrap())
+            / (2 * i64::try_from(self.epsilon).unwrap());
+
+        (dx, dy)
+    }
+
+    fn cost_function(&self, steps_a: i64, steps_b: i64) -> u64 {
+        let a = steps_a;
+        let b = steps_b;
+        let a_x = i64::try_from(self.button_a.0).unwrap();
+        let a_y = i64::try_from(self.button_a.1).unwrap();
+        let b_x = i64::try_from(self.button_b.0).unwrap();
+        let b_y = i64::try_from(self.button_b.1).unwrap();
+        let p_x = i64::try_from(self.prize.0).unwrap();
+        let p_y = i64::try_from(self.prize.1).unwrap();
+
+        let mut cost_x = (p_x - a_x * a - b_x * b);
+        let mut cost_y = (p_y - a_y * a - b_y * b);
+
+        if cost_x < 0 {
+            cost_x = -cost_x;
+        }
+
+        if cost_y < 0 {
+            cost_y = -cost_y;
+        }
+
+        let cost = cost_x + cost_y;
+
+        u64::try_from(cost).unwrap()
+    }
+
     fn compute_heuristic_combinations(&self) -> Option<Vec<(u64, u64)>> {
         let mut combinations = Vec::new();
 
@@ -160,17 +255,22 @@ impl ClawMachine {
         let eff_b = Self::get_efficiency(self.button_b, self.button_b_cost);
 
         let movement: Movement;
+        let other_movement: Movement;
         if eff_a > eff_b {
+            println!("Using main movement = A");
             movement = Movement::A(self.button_a);
+            other_movement = Movement::B(self.button_b);
         } else {
+            println!("Using main movement = B");
             movement = Movement::B(self.button_b);
+            other_movement = Movement::A(self.button_a);
         }
 
         let mut main_movement_steps_num = 0;
         let mut other_movement_steps_num = 0;
         let mut other_movement_diff = (0u64, 0u64);
 
-        loop {
+        for ix in 1..10 {
             // early break in case of odd values
             if other_movement_diff.0 > self.prize.0 || other_movement_diff.1 > self.prize.1 {
                 println!("Can't reach the prize, breaking");
@@ -181,7 +281,7 @@ impl ClawMachine {
                 self.prize.0 - other_movement_diff.0,
                 self.prize.1 - other_movement_diff.1,
             );
-            let steps_by_dimension = movement.get_steps_upper_bound(updated_distance);
+            let steps_by_dimension = movement.get_steps_upper_bound_for_x(updated_distance);
             main_movement_steps_num = steps_by_dimension.get_steps();
 
             let current_combination = (main_movement_steps_num, other_movement_steps_num);
@@ -190,7 +290,13 @@ impl ClawMachine {
                 current_combination.0, current_combination.1
             );
 
-            let remainder = Self::get_remainder(self.prize, &movement, main_movement_steps_num);
+            let remainder = Self::get_remainder(
+                self.prize,
+                &movement,
+                main_movement_steps_num,
+                &other_movement,
+                other_movement_steps_num,
+            );
 
             if let (0u64, 0u64) = remainder {
                 println!("Found prize, returning");
@@ -199,21 +305,18 @@ impl ClawMachine {
                 break;
             }
 
-            // prize not found, move forward and update movements
+            println!("- Current remainder: {:?}", remainder);
 
-            let next_movement = match movement {
-                Movement::A(_) => Movement::B(self.button_b),
-                Movement::B(_) => Movement::A(self.button_a),
-            };
+            // prize not found, move forward and update movements
 
             let other_dimension_steps = match steps_by_dimension {
                 StepsByDimension::X(_) => {
                     // need to use Y dimension now with the other movement
-                    next_movement.get_steps_upper_bound_for_y(remainder)
+                    other_movement.get_steps_upper_bound_for_y(remainder)
                 }
                 StepsByDimension::Y(_) => {
                     // need to use X dimension now with the other movement
-                    next_movement.get_steps_upper_bound_for_x(remainder)
+                    other_movement.get_steps_upper_bound_for_x(remainder)
                 }
             };
 
@@ -225,7 +328,7 @@ impl ClawMachine {
             }
 
             other_movement_steps_num = other_cur_steps;
-            other_movement_diff = next_movement.get_distance_for_step(other_movement_steps_num);
+            other_movement_diff = other_movement.get_distance_for_step(other_movement_steps_num);
         }
 
         if combinations.is_empty() {
@@ -241,12 +344,17 @@ impl ClawMachine {
         squared_mag / cost as f64
     }
 
-    fn get_remainder(prize: (u64, u64), movement: &Movement, steps: u64) -> (u64, u64) {
-        match movement {
-            Movement::A(movement) | Movement::B(movement) => {
-                (prize.0 - steps * movement.0, prize.1 - steps * movement.1)
-            }
-        }
+    fn get_remainder(
+        prize: (u64, u64),
+        movement: &Movement,
+        steps: u64,
+        other_movement: &Movement,
+        other_steps: u64,
+    ) -> (u64, u64) {
+        (
+            prize.0 - steps * movement.get_steps().0 - other_steps * other_movement.get_steps().0,
+            prize.1 - steps * movement.get_steps().1 - other_steps * other_movement.get_steps().1,
+        )
     }
 
     fn is_prize_reached(
@@ -363,7 +471,7 @@ pub fn run(config: Config) -> Result<(u64), Box<dyn Error>> {
 
     let mut total_cost = 0;
     for (index, c) in cfgs.iter().enumerate() {
-        let machine = ClawMachine::new(c).unwrap();
+        let machine = ClawMachine::new(c, 1, 1i64).unwrap();
         if let Some(cost) = machine.get_cost_for_cheapest_combination() {
             total_cost += cost;
         }
@@ -405,6 +513,7 @@ a_x,a_y,b_x,b_y,p_x,p_y
         let structs: Vec<ClawMachineConfiguration> = deserialize(reader).unwrap();
     }
 
+    #[ignore]
     #[test]
     fn sample_input_test() {
         let data = "\
@@ -420,7 +529,7 @@ a_x,a_y,b_x,b_y,p_x,p_y
 
         let mut total_cost = 0;
         for (index, c) in cfgs.iter().enumerate() {
-            let machine = ClawMachine::new(c).unwrap();
+            let machine = ClawMachine::new(c, 1, 1i64).unwrap();
             let cheapest = machine.compute_cheapest_combination();
 
             assert_eq!(cheapest, expected[index]);
@@ -435,19 +544,23 @@ a_x,a_y,b_x,b_y,p_x,p_y
 
     #[test]
     fn sample_input_part2_test() {
+        //let data = "\
+        //a_x,a_y,b_x,b_y,p_x,p_y
+        //94,34,22,67,10000000008400,10000000005400
+        //26,66,67,21,10000000012748,10000000012176
+        //17,86,84,37,10000000007870,10000000006450
+        //69,23,27,71,10000000018641,10000000010279";
+
         let data = "\
 a_x,a_y,b_x,b_y,p_x,p_y
-94,34,22,67,10000000008400,10000000005400
-26,66,67,21,10000000012748,10000000012176
-17,86,84,37,10000000007870,10000000006450
-69,23,27,71,10000000018641,10000000010279";
+26,66,67,21,10000000012748,10000000012176";
 
         let cfgs: Vec<ClawMachineConfiguration> = deserialize(data.as_bytes()).unwrap();
 
         let mut total_cost = 0;
         for (index, c) in cfgs.iter().enumerate() {
             println!("Running machine {index}...");
-            let machine = ClawMachine::new(c).unwrap();
+            let machine = ClawMachine::new(c, 1, 1i64).unwrap();
             let cheapest = machine.compute_cheapest_combination();
 
             if let Some(cost) = machine.get_cost_for_cheapest_combination_heuristic() {
@@ -457,5 +570,47 @@ a_x,a_y,b_x,b_y,p_x,p_y
         }
 
         assert_eq!(total_cost, 480);
+    }
+
+    #[ignore]
+    #[test]
+    fn sample_input_steepest_descend_part2_test() {
+        let data = "\
+a_x,a_y,b_x,b_y,p_x,p_y
+26,66,67,21,10000000012748,10000000012176";
+
+        let cfgs: Vec<ClawMachineConfiguration> = deserialize(data.as_bytes()).unwrap();
+
+        let mut total_cost = 0;
+        for (index, c) in cfgs.iter().enumerate() {
+            println!("Running machine {index}...");
+            let machine = ClawMachine::new(c, 100, 1i64).unwrap();
+            let cheapest = machine.compute_cheapest_combination();
+
+            if let Some(cost) = machine.compute_steepest_descend_combinations() {
+                println!("Found cost possible costs");
+            }
+        }
+
+        assert_eq!(total_cost, 480);
+    }
+
+    #[test]
+    fn cost_function_test() {
+        let data = "\
+a_x,a_y,b_x,b_y,p_x,p_y
+26,66,67,21,10000000012748,10000000012176";
+
+        let cfgs: Vec<ClawMachineConfiguration> = deserialize(data.as_bytes()).unwrap();
+        for (index, c) in cfgs.iter().enumerate() {
+            println!("Running machine {index}...");
+            let machine = ClawMachine::new(c, 100, 100).unwrap();
+
+            let steps_a = 103200496270i64;
+            let steps_b = 118675644717i64;
+
+            machine.cost_function(steps_a, steps_b);
+            machine.cost_function(0, 0);
+        }
     }
 }

@@ -32,6 +32,70 @@ impl Config {
     }
 }
 
+#[derive(Debug)]
+enum StepsByDimension {
+    X(u64),
+    Y(u64),
+}
+
+impl StepsByDimension {
+    fn get_steps(&self) -> u64 {
+        match self {
+            StepsByDimension::X(steps) | StepsByDimension::Y(steps) => *steps,
+        }
+    }
+}
+
+enum Movement {
+    A((u64, u64)),
+    B((u64, u64)),
+}
+
+impl Movement {
+    fn get_steps_upper_bound(&self, distance: (u64, u64)) -> StepsByDimension {
+        match self {
+            Movement::A(movement) | Movement::B(movement) => {
+                let x = distance.0 / movement.0;
+                let y = distance.1 / movement.1;
+
+                if x < y {
+                    println!("- Using dimension x");
+                    StepsByDimension::X(x)
+                } else {
+                    println!("- Using dimension y");
+                    StepsByDimension::Y(y)
+                }
+            }
+        }
+    }
+
+    fn get_steps_upper_bound_for_x(&self, distance: (u64, u64)) -> StepsByDimension {
+        match self {
+            Movement::A(movement) | Movement::B(movement) => {
+                let x = distance.0 / movement.0;
+                StepsByDimension::X(x)
+            }
+        }
+    }
+
+    fn get_steps_upper_bound_for_y(&self, distance: (u64, u64)) -> StepsByDimension {
+        match self {
+            Movement::A(movement) | Movement::B(movement) => {
+                let y = distance.1 / movement.1;
+                StepsByDimension::Y(y)
+            }
+        }
+    }
+
+    fn get_distance_for_step(&self, steps: u64) -> (u64, u64) {
+        match self {
+            Movement::A(movement) | Movement::B(movement) => {
+                (steps * movement.0, steps * movement.1)
+            }
+        }
+    }
+}
+
 struct ClawMachine {
     button_a: (u64, u64),
     button_b: (u64, u64),
@@ -92,35 +156,60 @@ impl ClawMachine {
     fn compute_heuristic_combinations(&self) -> Option<Vec<(u64, u64)>> {
         let mut combinations = Vec::new();
 
-        let start_a_x = self.prize.0 / self.button_a.0;
-        let start_a_y = self.prize.1 / self.button_a.1;
-        let start_b_x = self.prize.0 / self.button_b.0;
-        let start_b_y = self.prize.1 / self.button_b.1;
+        let eff_a = Self::get_efficiency(self.button_a, self.button_a_cost);
+        let eff_b = Self::get_efficiency(self.button_b, self.button_b_cost);
 
-        let start_x = cmp::min(start_a_x, start_b_x);
-        let start_y = cmp::min(start_a_y, start_b_y);
+        let movement: Movement;
+        if eff_a > eff_b {
+            movement = Movement::A(self.button_a);
+        } else {
+            movement = Movement::B(self.button_b);
+        }
 
-        println!(
-            "Found {}, {}, {}, {}",
-            start_a_x, start_a_y, start_b_x, start_b_y
-        );
+        let mut main_movement_steps_num = 0;
+        let mut other_movement_steps_num = 0;
+        let mut other_movement_diff = (0u64, 0u64);
 
-        for ix in 0u64..=100000000 {
-            for iy in 0u64..=10000000 {
-                let pos = (
-                    (start_x + ix) * self.button_a.0 + (start_y + iy) * self.button_b.0,
-                    (start_x + ix) * self.button_a.1 + (start_y + iy) * self.button_b.1,
+        loop {
+            let updated_distance = (
+                self.prize.0 - other_movement_diff.0,
+                self.prize.1 - other_movement_diff.1,
+            );
+            let steps_by_dimension = movement.get_steps_upper_bound(updated_distance);
+            main_movement_steps_num = steps_by_dimension.get_steps();
+
+            let remainder = Self::get_remainder(self.prize, &movement, main_movement_steps_num);
+
+            // update
+            let next_movement = match movement {
+                Movement::A(_) => Movement::B(self.button_b),
+                Movement::B(_) => Movement::A(self.button_a),
+            };
+
+            let other_dimension_steps = match steps_by_dimension {
+                StepsByDimension::X(_) => {
+                    // need to use Y dimension now with the other movement
+                    next_movement.get_steps_upper_bound_for_y(remainder)
+                }
+                StepsByDimension::Y(_) => {
+                    // need to use X dimension now with the other movement
+                    next_movement.get_steps_upper_bound_for_x(remainder)
+                }
+            };
+
+            let other_movement_current_step_num = other_dimension_steps.get_steps();
+
+            if other_movement_current_step_num == other_movement_steps_num {
+                println!(
+                    "Found combination! ({}, {})",
+                    main_movement_steps_num, other_movement_steps_num
                 );
-
-                if pos == self.prize {
-                    combinations.push((ix, iy));
-                    break;
-                }
-
-                if pos > self.prize {
-                    break;
-                }
+                combinations.push((main_movement_steps_num, other_movement_steps_num));
+                break;
             }
+
+            other_movement_steps_num = other_movement_current_step_num;
+            other_movement_diff = next_movement.get_distance_for_step(other_movement_steps_num);
         }
 
         if combinations.is_empty() {
@@ -129,6 +218,19 @@ impl ClawMachine {
         }
 
         Some(combinations)
+    }
+
+    fn get_efficiency(movement: (u64, u64), cost: u64) -> f64 {
+        let squared_mag = (movement.0.pow(2) + movement.1.pow(2)) as f64;
+        squared_mag / cost as f64
+    }
+
+    fn get_remainder(prize: (u64, u64), movement: &Movement, steps: u64) -> (u64, u64) {
+        match movement {
+            Movement::A(movement) | Movement::B(movement) => {
+                (prize.0 - steps * movement.0, prize.1 - steps * movement.1)
+            }
+        }
     }
 
     fn compute_all_combinations(&self) -> Option<Vec<(u64, u64)>> {

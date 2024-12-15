@@ -7,13 +7,20 @@ pub struct Config {
     puzzle_input_moves: String,
 }
 
+enum Move {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
 struct Moves {
-    moves: Vec<char>,
+    moves: Vec<Move>,
 }
 
 impl Moves {
     pub fn make(raw_data: &str) -> Result<Moves, &'static str> {
-        let moves: Vec<char> = raw_data
+        let raw_moves: Vec<char> = raw_data
             .trim()
             .as_bytes()
             .iter()
@@ -21,11 +28,14 @@ impl Moves {
             .filter(|c| *c as char != '\n')
             .collect();
 
+        let mut moves = Vec::new();
         let mut is_ok = true;
-        moves.iter().for_each(|c| {
-            if *c != '^' && *c != 'v' && *c != '<' && *c != '>' {
-                is_ok = false;
-            }
+        raw_moves.iter().for_each(|c| match *c {
+            '^' => moves.push(Move::Up),
+            '>' => moves.push(Move::Right),
+            'v' => moves.push(Move::Down),
+            '<' => moves.push(Move::Left),
+            _ => is_ok = false,
         });
 
         if !is_ok {
@@ -40,6 +50,8 @@ struct WarehouseMap {
     positions: Vec<Vec<char>>,
     rows: usize,
     columns: usize,
+    start_position: (usize, usize),
+    position: (usize, usize),
 }
 
 impl WarehouseMap {
@@ -72,11 +84,27 @@ impl WarehouseMap {
             return Err("Wrong line length for map.");
         }
 
+        let mut start_position = (0usize, 0usize);
+        for (iy, row) in positions.iter().enumerate() {
+            for (ix, c) in row.iter().enumerate() {
+                if *c == '@' {
+                    start_position = (ix, iy);
+                    break;
+                }
+            }
+        }
+
         Ok(WarehouseMap {
             positions,
             rows: num_rows,
             columns: num_columns,
+            start_position,
+            position: start_position,
         })
+    }
+
+    pub fn update_with_move(&mut self, m: &Move) {
+        todo!();
     }
 
     pub fn rows(&self) -> usize {
@@ -85,6 +113,14 @@ impl WarehouseMap {
 
     pub fn columns(&self) -> usize {
         self.columns
+    }
+
+    pub fn start_position(&self) -> (usize, usize) {
+        self.start_position
+    }
+
+    pub fn position(&self) -> (usize, usize) {
+        self.position
     }
 }
 
@@ -142,5 +178,28 @@ mod tests {
         let map = WarehouseMap::make(data).unwrap();
         assert_eq!(map.rows(), 8);
         assert_eq!(map.columns(), 8);
+        assert_eq!(map.start_position(), (2, 2));
+        assert_eq!(map.position(), (2, 2));
+    }
+
+    #[test]
+    fn sample_map_test() {
+        let map_data = "\
+########
+#..O.O.#
+##@.O..#
+#...O..#
+#.#.O..#
+#...O..#
+#......#
+########";
+
+        let moves_data = "\
+<^^>>>vv<v>>v<<";
+
+        let mut map = WarehouseMap::make(map_data).unwrap();
+        let movements = Moves::make(moves_data).unwrap();
+
+        movements.moves.iter().for_each(|m| map.update_with_move(m));
     }
 }

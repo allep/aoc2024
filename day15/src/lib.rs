@@ -108,7 +108,42 @@ impl WarehouseMap {
         self.do_move(self.position, m);
     }
 
+    pub fn update_with_move_large(&mut self, m: &Move) {
+        self.do_move_large(self.position, m);
+        self.check_invariants();
+    }
+
     fn do_move(&mut self, current: (usize, usize), m: &Move) -> bool {
+        assert!(current.0 < self.columns);
+        assert!(current.1 < self.rows);
+
+        if self.is_non_movable(current) {
+            println!("Not moving from {current:?} because not movable");
+            return false;
+        }
+
+        let candidate = self.get_pos_from_current_and_move(current, m);
+        if let Some(pos) = candidate {
+            if self.is_free(pos) || self.do_move(pos, m) {
+                println!("Moving to {pos:?}");
+
+                let cur_object = self.positions[current.1][current.0];
+                self.positions[pos.1][pos.0] = cur_object;
+                self.positions[current.1][current.0] = '.';
+
+                if cur_object == '@' {
+                    self.position = pos;
+                }
+
+                return true;
+            }
+        }
+
+        println!("Not moving from {current:?}");
+        false
+    }
+
+    fn do_move_large(&mut self, current: (usize, usize), m: &Move) -> bool {
         assert!(current.0 < self.columns);
         assert!(current.1 < self.rows);
 
@@ -214,6 +249,24 @@ impl WarehouseMap {
         }
 
         total
+    }
+
+    fn check_invariants(&self) {
+        // main invariant: map should have aligned boxes parts
+        for (iy, row) in self.positions.iter().enumerate() {
+            for (ix, c) in row.iter().enumerate() {
+                match *c {
+                    '[' => {
+                        assert_eq!(self.positions[iy][ix + 1], ']');
+                    }
+                    ']' => {
+                        assert!(ix > 2);
+                        assert_eq!(self.positions[iy][ix - 1], '[');
+                    }
+                    _ => (),
+                }
+            }
+        }
     }
 
     pub fn rows(&self) -> usize {
@@ -359,7 +412,10 @@ mod tests {
         let mut map = WarehouseMap::make(map_data).unwrap();
         let movements = Moves::make(moves_data).unwrap();
 
-        movements.moves.iter().for_each(|m| map.update_with_move(m));
+        movements
+            .moves
+            .iter()
+            .for_each(|m| map.update_with_move_large(m));
 
         let expected = "\
 ####################

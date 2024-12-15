@@ -113,6 +113,8 @@ impl WarehouseMap {
     }
 
     pub fn update_with_move_large(&mut self, m: &Move) {
+        self.simulated_positions = self.positions.clone();
+
         self.try_move_large(self.position, m);
         if let Ok(_) = self.check_invariants(&self.simulated_positions) {
             self.positions = self.simulated_positions.clone();
@@ -133,14 +135,14 @@ impl WarehouseMap {
         assert!(current.0 < self.columns);
         assert!(current.1 < self.rows);
 
-        if self.is_non_movable(current) {
+        if self.is_non_movable(current, &self.positions) {
             println!("Not moving from {current:?} because not movable");
             return false;
         }
 
         let candidate = self.get_pos_from_current_and_move(current, m);
         if let Some(pos) = candidate {
-            if self.is_free(pos) || self.do_move(pos, m) {
+            if self.is_free(pos, &self.positions) || self.do_move(pos, m) {
                 println!("Moving to {pos:?}");
 
                 let cur_object = self.positions[current.1][current.0];
@@ -163,18 +165,18 @@ impl WarehouseMap {
         assert!(current.0 < self.columns);
         assert!(current.1 < self.rows);
 
-        if self.is_non_movable(current) {
+        if self.is_non_movable(current, &self.simulated_positions) {
             println!("Not moving from {current:?} because not movable");
             return false;
         }
 
-        if self.is_box(current) {
+        if self.is_box(current, &self.simulated_positions) {
             todo!();
         }
 
         let candidate = self.get_pos_from_current_and_move(current, m);
         if let Some(pos) = candidate {
-            if self.is_free(pos) || self.try_move_large(pos, m) {
+            if self.is_free(pos, &self.simulated_positions) || self.try_move_large(pos, m) {
                 println!("Moving to {pos:?}");
 
                 let cur_object = self.simulated_positions[current.1][current.0];
@@ -226,11 +228,11 @@ impl WarehouseMap {
             && usize::try_from(pos.1).unwrap() < self.rows
     }
 
-    fn is_free(&self, pos: (usize, usize)) -> bool {
+    fn is_free(&self, pos: (usize, usize), positions: &Vec<Vec<char>>) -> bool {
         assert!(pos.0 < self.columns);
         assert!(pos.1 < self.rows);
 
-        match self.positions[pos.1][pos.0] {
+        match positions[pos.1][pos.0] {
             '#' | '@' | 'O' => {
                 println!("Position {:?} is not free", pos);
                 false
@@ -242,11 +244,11 @@ impl WarehouseMap {
         }
     }
 
-    fn is_non_movable(&self, pos: (usize, usize)) -> bool {
+    fn is_non_movable(&self, pos: (usize, usize), positions: &Vec<Vec<char>>) -> bool {
         assert!(pos.0 < self.columns);
         assert!(pos.1 < self.rows);
 
-        match self.positions[pos.1][pos.0] {
+        match positions[pos.1][pos.0] {
             '#' => {
                 println!("Position {:?} is not movable", pos);
                 true
@@ -258,11 +260,11 @@ impl WarehouseMap {
         }
     }
 
-    fn is_box(&self, pos: (usize, usize)) -> bool {
+    fn is_box(&self, pos: (usize, usize), positions: &Vec<Vec<char>>) -> bool {
         assert!(pos.0 < self.columns);
         assert!(pos.1 < self.rows);
 
-        match self.positions[pos.1][pos.0] {
+        match positions[pos.1][pos.0] {
             '[' | ']' => {
                 println!("Position {:?} contains part of a box", pos);
                 true

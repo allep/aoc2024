@@ -1,3 +1,4 @@
+use std::fs;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
 
@@ -248,8 +249,17 @@ impl Config {
     }
 }
 
-pub fn run(config: Config) -> Result<(u32), Box<dyn Error>> {
-    Ok((0))
+pub fn run(config: Config) -> Result<(u64), Box<dyn Error>> {
+    let map_content = fs::read_to_string(config.puzzle_input_map)?;
+    let moves_content = fs::read_to_string(config.puzzle_input_moves)?;
+
+    let mut map = WarehouseMap::make(&map_content).unwrap();
+    let movements = Moves::make(&moves_content).unwrap();
+
+    movements.moves.iter().for_each(|m| map.update_with_move(m));
+
+    let boxes_coordinates_sum = map.get_boxes_coordinates_sum();
+    Ok((boxes_coordinates_sum))
 }
 
 // Note on printing during tests:
@@ -327,5 +337,48 @@ mod tests {
         }
         assert_eq!(expected, actual.trim());
         assert_eq!(map.get_boxes_coordinates_sum(), 2028);
+    }
+
+    #[test]
+    fn sample_map_part2_test() {
+        let map_data = "\
+####################
+##....[]....[]..[]##
+##............[]..##
+##..[][]....[]..[]##
+##....[]@.....[]..##
+##[]##....[]......##
+##[]....[]....[]..##
+##..[][]..[]..[][]##
+##........[]......##
+####################";
+
+        let moves_data = "\
+<vv<<^^<<^^";
+
+        let mut map = WarehouseMap::make(map_data).unwrap();
+        let movements = Moves::make(moves_data).unwrap();
+
+        movements.moves.iter().for_each(|m| map.update_with_move(m));
+
+        let expected = "\
+####################
+##[].......[].[][]##
+##[]...........[].##
+##[]........[][][]##
+##[]......[]....[]##
+##..##......[]....##
+##..[]............##
+##..@......[].[][]##
+##......[][]..[]..##
+####################";
+
+        let mut actual = String::new();
+        for r in map.positions.iter() {
+            let row: String = r.iter().collect();
+            actual += &format!("{}\n", row);
+        }
+        assert_eq!(expected, actual.trim());
+        assert_eq!(map.get_boxes_coordinates_sum(), 9021);
     }
 }

@@ -49,6 +49,7 @@ impl Moves {
 
 struct WarehouseMap {
     positions: Vec<Vec<char>>,
+    simulated_positions: Vec<Vec<char>>,
     rows: usize,
     columns: usize,
     start_position: (usize, usize),
@@ -95,8 +96,11 @@ impl WarehouseMap {
             }
         }
 
+        let simulated_positions = positions.clone();
+
         Ok(WarehouseMap {
             positions,
+            simulated_positions,
             rows: num_rows,
             columns: num_columns,
             start_position,
@@ -109,8 +113,20 @@ impl WarehouseMap {
     }
 
     pub fn update_with_move_large(&mut self, m: &Move) {
-        self.do_move_large(self.position, m);
-        self.check_invariants();
+        self.try_move_large(self.position, m);
+        if let Ok(_) = self.check_invariants(&self.simulated_positions) {
+            self.positions = self.simulated_positions.clone();
+        }
+
+        let inv = self.check_invariants(&self.positions);
+        if let Err(msg) = inv {
+            let mut actual = String::new();
+            for r in self.positions.iter() {
+                let row: String = r.iter().collect();
+                actual += &format!("{}\n", row);
+            }
+            panic!("Invariants failed on real map. Msg: {msg}\n{actual}");
+        }
     }
 
     fn do_move(&mut self, current: (usize, usize), m: &Move) -> bool {
@@ -143,7 +159,7 @@ impl WarehouseMap {
         false
     }
 
-    fn do_move_large(&mut self, current: (usize, usize), m: &Move) -> bool {
+    fn try_move_large(&mut self, current: (usize, usize), m: &Move) -> bool {
         assert!(current.0 < self.columns);
         assert!(current.1 < self.rows);
 
@@ -152,14 +168,18 @@ impl WarehouseMap {
             return false;
         }
 
+        if self.is_box(current) {
+            todo!();
+        }
+
         let candidate = self.get_pos_from_current_and_move(current, m);
         if let Some(pos) = candidate {
-            if self.is_free(pos) || self.do_move(pos, m) {
+            if self.is_free(pos) || self.try_move_large(pos, m) {
                 println!("Moving to {pos:?}");
 
-                let cur_object = self.positions[current.1][current.0];
-                self.positions[pos.1][pos.0] = cur_object;
-                self.positions[current.1][current.0] = '.';
+                let cur_object = self.simulated_positions[current.1][current.0];
+                self.simulated_positions[pos.1][pos.0] = cur_object;
+                self.simulated_positions[current.1][current.0] = '.';
 
                 if cur_object == '@' {
                     self.position = pos;
@@ -238,6 +258,22 @@ impl WarehouseMap {
         }
     }
 
+    fn is_box(&self, pos: (usize, usize)) -> bool {
+        assert!(pos.0 < self.columns);
+        assert!(pos.1 < self.rows);
+
+        match self.positions[pos.1][pos.0] {
+            '[' | ']' => {
+                println!("Position {:?} contains part of a box", pos);
+                true
+            }
+            _ => {
+                println!("Position {:?} is either free or simply movable", pos);
+                false
+            }
+        }
+    }
+
     pub fn get_boxes_coordinates_sum(&self) -> u64 {
         let mut total = 0u64;
         for (iy, row) in self.positions.iter().enumerate() {
@@ -251,22 +287,31 @@ impl WarehouseMap {
         total
     }
 
-    fn check_invariants(&self) {
+    fn check_invariants(&self, positions: &Vec<Vec<char>>) -> Result<(), String> {
         // main invariant: map should have aligned boxes parts
-        for (iy, row) in self.positions.iter().enumerate() {
+        for (iy, row) in positions.iter().enumerate() {
             for (ix, c) in row.iter().enumerate() {
                 match *c {
                     '[' => {
-                        assert_eq!(self.positions[iy][ix + 1], ']');
+                        if self.positions[iy][ix + 1] != ']' {
+                            return Err(format!("Violated invariant at ({}, {})", ix, iy));
+                        }
                     }
                     ']' => {
-                        assert!(ix > 2);
-                        assert_eq!(self.positions[iy][ix - 1], '[');
+                        if ix <= 2 {
+                            return Err(format!("Violated invariant at ({}, {})", ix, iy));
+                        }
+
+                        if self.positions[iy][ix - 1] != '[' {
+                            return Err(format!("Violated invariant at ({}, {})", ix, iy));
+                        }
                     }
                     _ => (),
                 }
             }
         }
+
+        return Ok(());
     }
 
     pub fn rows(&self) -> usize {

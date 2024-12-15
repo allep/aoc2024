@@ -437,9 +437,12 @@ pub fn run(config: Config) -> Result<(u64), Box<dyn Error>> {
     let mut map = WarehouseMap::make(&map_content).unwrap();
     let movements = Moves::make(&moves_content).unwrap();
 
-    movements.moves.iter().for_each(|m| map.update_with_move(m));
+    movements
+        .moves
+        .iter()
+        .for_each(|m| map.update_with_move_large(m));
 
-    let boxes_coordinates_sum = map.get_boxes_coordinates_sum();
+    let boxes_coordinates_sum = map.get_boxes_coordinates_large_sum();
     Ok((boxes_coordinates_sum))
 }
 

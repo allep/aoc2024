@@ -7,6 +7,38 @@ pub struct Config {
     puzzle_input_moves: String,
 }
 
+struct Moves {
+    moves: Vec<char>,
+}
+
+impl Moves {
+    pub fn make(raw_data: &str) -> Result<Moves, &'static str> {
+        let moves: Vec<char> = raw_data
+            .as_bytes()
+            .iter()
+            .map(|b| *b as char)
+            .filter(|c| *c as char != '\n')
+            .collect();
+
+        let mut is_ok = true;
+        moves.iter().for_each(|c| {
+            if *c != '^' && *c != 'v' && *c != '<' && *c != '>' {
+                is_ok = false;
+            }
+        });
+
+        if !is_ok {
+            return Err("Some moves were not acceptable");
+        }
+
+        Ok(Moves { moves })
+    }
+}
+
+struct WarehouseMap {
+    positions: Vec<Vec<char>>,
+}
+
 impl Config {
     pub fn build(args: &[String]) -> Result<Config, &'static str> {
         if args.len() < 3 {

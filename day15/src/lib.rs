@@ -121,8 +121,21 @@ impl WarehouseMap {
         self.simulated_positions = self.positions.clone();
 
         self.try_move_large(self.position, m);
-        if let Ok(_) = self.check_invariants(&self.simulated_positions) {
-            self.positions = self.simulated_positions.clone();
+        match self.check_invariants(&self.simulated_positions) {
+            Ok(_) => {
+                println!("Invariants ok");
+                self.positions = self.simulated_positions.clone();
+            }
+            Err(msg) => {
+                println!("{msg}");
+
+                let mut actual = String::new();
+                for r in self.simulated_positions.iter() {
+                    let row: String = r.iter().collect();
+                    actual += &format!("{}\n", row);
+                }
+                println!("Simulated map:\n{actual}");
+            }
         }
 
         let inv = self.check_invariants(&self.positions);
@@ -222,9 +235,13 @@ impl WarehouseMap {
 
                                 return true;
                             }
+                            return false;
                         }
+                        return false;
                     }
-                    _ => (),
+                    _ => {
+                        return true;
+                    }
                 }
             } else {
                 return true;
@@ -339,17 +356,17 @@ impl WarehouseMap {
             for (ix, c) in row.iter().enumerate() {
                 match *c {
                     '[' => {
-                        if self.positions[iy][ix + 1] != ']' {
-                            return Err(format!("Violated invariant at ({}, {})", ix, iy));
+                        if positions[iy][ix + 1] != ']' {
+                            return Err(format!("Err 1: violated invariant at ({}, {})", ix, iy));
                         }
                     }
                     ']' => {
                         if ix <= 2 {
-                            return Err(format!("Violated invariant at ({}, {})", ix, iy));
+                            return Err(format!("Err 2: violated invariant at ({}, {})", ix, iy));
                         }
 
-                        if self.positions[iy][ix - 1] != '[' {
-                            return Err(format!("Violated invariant at ({}, {})", ix, iy));
+                        if positions[iy][ix - 1] != '[' {
+                            return Err(format!("Err 3: violated invariant at ({}, {})", ix, iy));
                         }
                     }
                     _ => (),
@@ -558,10 +575,17 @@ v^^>>><<^^<>>^v^<v^vv<>v^<<>^<^v^v><^<<<><<^<v><v<>vv>>v><v^<vv<>v^<<^";
         let mut map = WarehouseMap::make(map_data).unwrap();
         let movements = Moves::make(moves_data).unwrap();
 
-        movements
-            .moves
-            .iter()
-            .for_each(|m| map.update_with_move_large(m));
+        movements.moves.iter().for_each(|m| {
+            println!("----------- Move start -----------");
+            map.update_with_move_large(m);
+
+            let mut actual = String::new();
+            for r in map.positions.iter() {
+                let row: String = r.iter().collect();
+                actual += &format!("{}\n", row);
+            }
+            println!("Current map:\n{actual}");
+        });
 
         let expected = "\
 ##############

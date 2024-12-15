@@ -107,6 +107,43 @@ impl WarehouseMap {
         todo!();
     }
 
+    fn can_move(&self, current: (usize, usize), m: &Move) -> bool {
+        todo!();
+    }
+
+    fn get_pos_from_current_and_move(
+        &self,
+        current: (usize, usize),
+        m: &Move,
+    ) -> Option<(usize, usize)> {
+        let current = (
+            i32::try_from(current.0).unwrap(),
+            i32::try_from(current.1).unwrap(),
+        );
+        let next = match m {
+            Move::Up => (current.0, current.1 - 1),
+            Move::Right => (current.0 + 1, current.1),
+            Move::Down => (current.0, current.1 + 1),
+            Move::Left => (current.0 - 1, current.1),
+        };
+
+        if self.is_inside_map(next) {
+            return Some((
+                usize::try_from(next.0).unwrap(),
+                usize::try_from(next.1).unwrap(),
+            ));
+        }
+
+        None
+    }
+
+    fn is_inside_map(&self, pos: (i32, i32)) -> bool {
+        pos.0 >= 0
+            && pos.1 >= 0
+            && usize::try_from(pos.0).unwrap() < self.columns
+            && usize::try_from(pos.1).unwrap() < self.rows
+    }
+
     pub fn rows(&self) -> usize {
         self.rows
     }

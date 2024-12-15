@@ -297,9 +297,21 @@ mod tests {
 
         movements.moves.iter().for_each(|m| map.update_with_move(m));
 
+        let expected = "\
+########
+#....OO#
+##.....#
+#.....O#
+#.#O@..#
+#...O..#
+#...O..#
+########";
+
+        let mut actual = String::new();
         for r in map.positions.iter() {
             let row: String = r.iter().collect();
-            println!("{row}");
+            actual += &format!("{}\n", row);
         }
+        assert_eq!(expected, actual.trim());
     }
 }

@@ -8,6 +8,11 @@ pub struct Config {
     puzzle_input_moves: String,
 }
 
+enum BoxKind {
+    Left,
+    Right,
+}
+
 enum Move {
     Up,
     Down,
@@ -170,10 +175,9 @@ impl WarehouseMap {
             return false;
         }
 
-        if self.is_box(current, &self.simulated_positions) {
-            todo!();
-        }
+        let box_part = self.try_get_box(current, &self.simulated_positions);
 
+        let mut success = false;
         let candidate = self.get_pos_from_current_and_move(current, m);
         if let Some(pos) = candidate {
             if self.is_free(pos, &self.simulated_positions) || self.try_move_large(pos, m) {
@@ -187,6 +191,42 @@ impl WarehouseMap {
                     self.position = pos;
                 }
 
+                success = true;
+            }
+        }
+
+        if success {
+            if let Some(kind) = box_part {
+                match *m {
+                    Move::Up | Move::Down => {
+                        let other_part_pos = match kind {
+                            BoxKind::Left => (current.0 + 1, 0),
+                            BoxKind::Right => (current.0 - 1, 0),
+                        };
+
+                        let candidate = self.get_pos_from_current_and_move(other_part_pos, m);
+                        if let Some(pos) = candidate {
+                            if self.is_free(pos, &self.simulated_positions)
+                                || self.try_move_large(pos, m)
+                            {
+                                println!("Moving to {pos:?} second part of a box");
+
+                                let cur_object =
+                                    self.simulated_positions[other_part_pos.1][other_part_pos.0];
+                                self.simulated_positions[pos.1][pos.0] = cur_object;
+                                self.simulated_positions[other_part_pos.1][other_part_pos.0] = '.';
+
+                                if cur_object == '@' {
+                                    self.position = pos;
+                                }
+
+                                return true;
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+            } else {
                 return true;
             }
         }
@@ -233,7 +273,7 @@ impl WarehouseMap {
         assert!(pos.1 < self.rows);
 
         match positions[pos.1][pos.0] {
-            '#' | '@' | 'O' => {
+            '#' | '@' | 'O' | '[' | ']' => {
                 println!("Position {:?} is not free", pos);
                 false
             }
@@ -260,18 +300,22 @@ impl WarehouseMap {
         }
     }
 
-    fn is_box(&self, pos: (usize, usize), positions: &Vec<Vec<char>>) -> bool {
+    fn try_get_box(&self, pos: (usize, usize), positions: &Vec<Vec<char>>) -> Option<BoxKind> {
         assert!(pos.0 < self.columns);
         assert!(pos.1 < self.rows);
 
         match positions[pos.1][pos.0] {
-            '[' | ']' => {
-                println!("Position {:?} contains part of a box", pos);
-                true
+            '[' => {
+                println!("Position {:?} contains left-part of a box", pos);
+                return Some(BoxKind::Left);
+            }
+            ']' => {
+                println!("Position {:?} contains right-part of a box", pos);
+                return Some(BoxKind::Right);
             }
             _ => {
                 println!("Position {:?} is either free or simply movable", pos);
-                false
+                return None;
             }
         }
     }
@@ -439,6 +483,7 @@ mod tests {
         assert_eq!(map.get_boxes_coordinates_sum(), 2028);
     }
 
+    #[ignore]
     #[test]
     fn sample_map_part2_test() {
         let map_data = "\
@@ -454,7 +499,16 @@ mod tests {
 ####################";
 
         let moves_data = "\
-<vv<<^^<<^^";
+<vv>^<v^>v>^vv^v>v<>v^v<v<^vv<<<^><<><>>v<vvv<>^v^>^<<<><<v<<<v^vv^v>^
+vvv<<^>^v^^><<>>><>^<<><^vv^^<>vvv<>><^^v>^>vv<>v<<<<v<^v>^<^^>>>^<v<v
+><>vv>v^v^<>><>>>><^^>vv>v<^^^>>v^v^<^^>v^^>v^<^v>v<>>v^v^<v>v^^<^^vv<
+<<v<^>>^^^^>>>v^<>vvv^><v<<<>^^^vv^<vvv>^>v<^^^^v<>^>vvvv><>>v^<<^^^^^
+^><^><>>><>^^<<^^v>>><^<v>^<vv>>v>>>^v><>^v><<<<v>>v<v<v>vvv>^<><<>^><
+^>><>^v<><^vvv<^^<><v<<<<<><^v<<<><<<^^<v<^^^><^>>^<v^><<<^>>^v<v^v<v^
+>^>>^v>vv>^<<^v<>><<><<v<<v><>v<^vv<<<>^^v^>^^>>><<^v>>v^v><^^>>^<>vv^
+<><^^>^^^<><vvvvv^v<v<<>^v<v>v<<^><<><<><<<^^<<<^<<>><<><^^^>^^<>^>v<>
+^^>vv<^v^v<vv>^<><v<^v>^^^>>>^^vvv^>vvv<>>>^<^>>>>>^<<^v>^vvv<>^<><<v>
+v^^>>><<^^<>>^v^<v^vv<>v^<<>^<^v^v><^<<<><<^<v><v<>vv>>v><v^<vv<>v^<<^";
 
         let mut map = WarehouseMap::make(map_data).unwrap();
         let movements = Moves::make(moves_data).unwrap();
@@ -481,6 +535,50 @@ mod tests {
             let row: String = r.iter().collect();
             actual += &format!("{}\n", row);
         }
+        println!("Actual map:\n{actual}");
+
+        assert_eq!(expected, actual.trim());
+        assert_eq!(map.get_boxes_coordinates_sum(), 9021);
+    }
+
+    #[test]
+    fn sample_map_part2_small_test() {
+        let map_data = "\
+##############
+##......##..##
+##..........##
+##....[][]@.##
+##....[]....##
+##..........##
+##############";
+
+        let moves_data = "\
+<vv<<^^<<^^";
+
+        let mut map = WarehouseMap::make(map_data).unwrap();
+        let movements = Moves::make(moves_data).unwrap();
+
+        movements
+            .moves
+            .iter()
+            .for_each(|m| map.update_with_move_large(m));
+
+        let expected = "\
+##############
+##...[].##..##
+##...@.[]...##
+##....[]....##
+##..........##
+##..........##
+##############";
+
+        let mut actual = String::new();
+        for r in map.positions.iter() {
+            let row: String = r.iter().collect();
+            actual += &format!("{}\n", row);
+        }
+        println!("Actual map:\n{actual}");
+
         assert_eq!(expected, actual.trim());
         assert_eq!(map.get_boxes_coordinates_sum(), 9021);
     }

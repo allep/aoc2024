@@ -170,8 +170,6 @@ impl ClawMachine {
     }
 
     fn compute_heuristic_combinations(&self) -> Option<Vec<(u64, u64)>> {
-        let mut combinations = Vec::new();
-
         let eff_a = Self::get_efficiency(self.button_a, self.button_a_cost);
         let eff_b = Self::get_efficiency(self.button_b, self.button_b_cost);
 
@@ -241,8 +239,8 @@ impl ClawMachine {
         let main_movement_delta = main_movement_max_steps_corrected - main_movement_min_steps;
         let other_movement_delta = other_movement_max_steps_corrected - other_movement_min_steps;
 
-        dbg!(main_movement);
-        dbg!(other_movement);
+        dbg!(&main_movement);
+        dbg!(&other_movement);
         dbg!(main_movement_min_steps);
         dbg!(other_movement_min_steps);
         dbg!(main_movement_max_steps_corrected);
@@ -252,80 +250,38 @@ impl ClawMachine {
         dbg!(main_movement_remainder_at_max);
         dbg!(other_movement_remainder_at_max);
 
-        return None;
+        for ix in 0..=main_movement_delta {
+            let main_movement_move = main_movement.get_steps();
+            let other_movement_move = other_movement.get_steps();
 
-        // TODO FIXME OLD PART
-        let mut main_movement_steps_num = 0;
-        let mut other_movement_steps_num = 0;
-        let mut other_movement_diff = (0u64, 0u64);
+            let main_steps = main_movement_max_steps_corrected - ix;
+            let other_steps = ix;
 
-        for ix in 1..10 {
-            // early break in case of odd values
-            if other_movement_diff.0 > self.prize.0 || other_movement_diff.1 > self.prize.1 {
-                println!("Can't reach the prize, breaking");
-                break;
-            }
-
-            let updated_distance = (
-                self.prize.0 - other_movement_diff.0,
-                self.prize.1 - other_movement_diff.1,
-            );
-            let steps_by_dimension = main_movement.get_steps_upper_bound_for_x(updated_distance);
-            main_movement_steps_num = steps_by_dimension.get_steps();
-
-            let current_combination = (main_movement_steps_num, other_movement_steps_num);
-            println!(
-                "Current combination of steps: ({}, {})",
-                current_combination.0, current_combination.1
+            let current_pos = (
+                (main_movement_max_steps_corrected - ix) * main_movement_move.0
+                    + ix * other_movement_move.0,
+                (main_movement_max_steps_corrected - ix) * main_movement_move.1
+                    + ix * other_movement_move.1,
             );
 
-            let remainder = Self::get_remainder(
+            let cur_remainder = Self::get_remainder(
                 self.prize,
                 &main_movement,
-                main_movement_steps_num,
+                main_steps,
                 &other_movement,
-                other_movement_steps_num,
+                other_steps,
             );
 
-            if let (0u64, 0u64) = remainder {
-                println!("Found prize, returning");
-
-                combinations.push(current_combination);
-                break;
+            if ix > 0 && (ix % 10000000) == 0 {
+                println!("Current remainder: {:?}", cur_remainder);
             }
 
-            println!("- Current remainder: {:?}", remainder);
-
-            // prize not found, move forward and update movements
-
-            let other_dimension_steps = match steps_by_dimension {
-                StepsByDimension::X(_) => {
-                    // need to use Y dimension now with the other movement
-                    other_movement.get_steps_upper_bound_for_y(remainder)
-                }
-                StepsByDimension::Y(_) => {
-                    // need to use X dimension now with the other movement
-                    other_movement.get_steps_upper_bound_for_x(remainder)
-                }
-            };
-
-            let other_cur_steps = other_dimension_steps.get_steps();
-
-            if other_cur_steps == other_movement_steps_num {
-                println!("No chance to reach prize, stuck in same position, breaking");
-                break;
+            if cur_remainder == (0i64, 0i64) {
+                println!("Found combination with {}, {}", main_steps, ix);
             }
-
-            other_movement_steps_num = other_cur_steps;
-            other_movement_diff = other_movement.get_distance_for_step(other_movement_steps_num);
         }
 
-        if combinations.is_empty() {
-            println!("Didn't find any result ...");
-            return None;
-        }
-
-        Some(combinations)
+        return None;
     }
 
     fn get_efficiency(movement: (u64, u64), cost: u64) -> f64 {
@@ -339,10 +295,16 @@ impl ClawMachine {
         steps: u64,
         other_movement: &Movement,
         other_steps: u64,
-    ) -> (u64, u64) {
+    ) -> (i64, i64) {
         (
-            prize.0 - steps * movement.get_steps().0 - other_steps * other_movement.get_steps().0,
-            prize.1 - steps * movement.get_steps().1 - other_steps * other_movement.get_steps().1,
+            i64::try_from(prize.0).unwrap()
+                - i64::try_from(steps).unwrap() * i64::try_from(movement.get_steps().0).unwrap()
+                - i64::try_from(other_steps).unwrap()
+                    * i64::try_from(other_movement.get_steps().0).unwrap(),
+            i64::try_from(prize.1).unwrap()
+                - i64::try_from(steps).unwrap() * i64::try_from(movement.get_steps().1).unwrap()
+                - i64::try_from(other_steps).unwrap()
+                    * i64::try_from(other_movement.get_steps().1).unwrap(),
         )
     }
 

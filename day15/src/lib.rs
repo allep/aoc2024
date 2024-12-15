@@ -104,11 +104,37 @@ impl WarehouseMap {
     }
 
     pub fn update_with_move(&mut self, m: &Move) {
-        todo!();
+        self.do_move(self.position, m);
     }
 
-    fn can_move(&self, current: (usize, usize), m: &Move) -> bool {
-        todo!();
+    fn do_move(&mut self, current: (usize, usize), m: &Move) -> bool {
+        assert!(current.0 < self.columns);
+        assert!(current.1 < self.rows);
+
+        if self.is_non_movable(current) {
+            println!("Not moving from {current:?} because not movable");
+            return false;
+        }
+
+        let candidate = self.get_pos_from_current_and_move(current, m);
+        if let Some(pos) = candidate {
+            if self.is_free(pos) || self.do_move(pos, m) {
+                println!("Moving to {pos:?}");
+
+                let cur_object = self.positions[current.1][current.0];
+                self.positions[pos.1][pos.0] = cur_object;
+                self.positions[current.1][current.0] = '.';
+
+                if cur_object == '@' {
+                    self.position = pos;
+                }
+
+                return true;
+            }
+        }
+
+        println!("Not moving from {current:?}");
+        false
     }
 
     fn get_pos_from_current_and_move(
@@ -142,6 +168,38 @@ impl WarehouseMap {
             && pos.1 >= 0
             && usize::try_from(pos.0).unwrap() < self.columns
             && usize::try_from(pos.1).unwrap() < self.rows
+    }
+
+    fn is_free(&self, pos: (usize, usize)) -> bool {
+        assert!(pos.0 < self.columns);
+        assert!(pos.1 < self.rows);
+
+        match self.positions[pos.1][pos.0] {
+            '#' | '@' | 'O' => {
+                println!("Position {:?} is not free", pos);
+                false
+            }
+            _ => {
+                println!("Position {:?} is free", pos);
+                true
+            }
+        }
+    }
+
+    fn is_non_movable(&self, pos: (usize, usize)) -> bool {
+        assert!(pos.0 < self.columns);
+        assert!(pos.1 < self.rows);
+
+        match self.positions[pos.1][pos.0] {
+            '#' => {
+                println!("Position {:?} is not movable", pos);
+                true
+            }
+            _ => {
+                println!("Position {:?} is either free or movable", pos);
+                false
+            }
+        }
     }
 
     pub fn rows(&self) -> usize {
@@ -238,5 +296,10 @@ mod tests {
         let movements = Moves::make(moves_data).unwrap();
 
         movements.moves.iter().for_each(|m| map.update_with_move(m));
+
+        for r in map.positions.iter() {
+            let row: String = r.iter().collect();
+            println!("{row}");
+        }
     }
 }

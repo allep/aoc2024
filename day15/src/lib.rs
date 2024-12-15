@@ -3,23 +3,27 @@ use std::{error::Error, fs::File, process};
 
 #[derive(Debug)]
 pub struct Config {
-    puzzle_input: String,
+    puzzle_input_map: String,
+    puzzle_input_moves: String,
 }
 
 impl Config {
     pub fn build(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 2 {
+        if args.len() < 3 {
             return Err("Not enough arguments");
         }
 
-        let puzzle_input = args[1].clone();
+        let puzzle_input_map = args[1].clone();
+        let puzzle_input_moves = args[2].clone();
 
-        Ok(Config { puzzle_input })
+        Ok(Config {
+            puzzle_input_map,
+            puzzle_input_moves,
+        })
     }
 }
 
 pub fn run(config: Config) -> Result<(u32), Box<dyn Error>> {
-    // TODO
     Ok((0))
 }
 
@@ -32,26 +36,4 @@ mod tests {
     use io::BufReader;
 
     use super::*;
-
-    #[test]
-    fn proper_deserialize_from_slice_to_entry() {
-        // Note: must be without spaces
-        let data = "\
-output_start,input_start,input_range
-50,98,2
-52,50,48
-";
-
-        let structs: Vec<Entry> = deserialize(data.as_bytes()).unwrap();
-    }
-
-    #[test]
-    fn proper_deserialize_from_file_to_entry() {
-        // Note: must be without spaces and by default the base directory should be at the same
-        // level of src
-        let file = File::open("content/sample-content.csv").unwrap();
-        let reader = BufReader::new(file);
-
-        let structs: Vec<Entry> = deserialize(reader).unwrap();
-    }
 }

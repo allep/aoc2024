@@ -1,7 +1,6 @@
 use csv::Reader;
 use io::BufReader;
 use serde::de::DeserializeOwned;
-use std::cmp;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
 
@@ -167,85 +166,6 @@ impl ClawMachine {
         }
 
         None
-    }
-
-    fn compute_steepest_descend_combinations(&self) -> Option<Vec<(u64, u64)>> {
-        let mut a = 10000000012748i64;
-        let mut b = 10000000012176i64;
-
-        for ix in 0..10000000000u64 {
-            let remainder = (
-                i64::try_from(self.prize.0).unwrap()
-                    - a * i64::try_from(self.button_a.0).unwrap()
-                    - b * i64::try_from(self.button_b.0).unwrap(),
-                i64::try_from(self.prize.1).unwrap()
-                    - a * i64::try_from(self.button_a.1).unwrap()
-                    - b * i64::try_from(self.button_b.1).unwrap(),
-            );
-            if ix % 1000000 == 0 {
-                println!(
-                    "Done another 1000000 iterations. Current pos: ({}, {}), remainder: ({}, {}), cost: {}",
-                    a,
-                    b,
-                    remainder.0,
-                    remainder.1,
-                    self.cost_function(a, b)
-                );
-            }
-
-            let grad = self.gradient(a, b);
-
-            let a_new = i64::try_from(a).unwrap() - self.learning_rate * grad.0;
-            let b_new = i64::try_from(b).unwrap() - self.learning_rate * grad.1;
-
-            a = a_new;
-            b = b_new;
-        }
-
-        let a = u64::try_from(a).unwrap();
-        let b = u64::try_from(b).unwrap();
-
-        None
-    }
-
-    fn gradient(&self, steps_a: i64, steps_b: i64) -> (i64, i64) {
-        let fx_plus = self.cost_function(steps_a + self.epsilon, steps_b);
-        let fx_minus = self.cost_function(steps_a - self.epsilon, steps_b);
-        let fy_plus = self.cost_function(steps_a, steps_b + self.epsilon);
-        let fy_minus = self.cost_function(steps_a, steps_b - self.epsilon);
-
-        let dx = (i64::try_from(fx_plus).unwrap() - i64::try_from(fx_minus).unwrap())
-            / (2 * i64::try_from(self.epsilon).unwrap());
-        let dy = (i64::try_from(fy_plus).unwrap() - i64::try_from(fy_minus).unwrap())
-            / (2 * i64::try_from(self.epsilon).unwrap());
-
-        (dx, dy)
-    }
-
-    fn cost_function(&self, steps_a: i64, steps_b: i64) -> u64 {
-        let a = steps_a;
-        let b = steps_b;
-        let a_x = i64::try_from(self.button_a.0).unwrap();
-        let a_y = i64::try_from(self.button_a.1).unwrap();
-        let b_x = i64::try_from(self.button_b.0).unwrap();
-        let b_y = i64::try_from(self.button_b.1).unwrap();
-        let p_x = i64::try_from(self.prize.0).unwrap();
-        let p_y = i64::try_from(self.prize.1).unwrap();
-
-        let mut cost_x = (p_x - a_x * a - b_x * b);
-        let mut cost_y = (p_y - a_y * a - b_y * b);
-
-        if cost_x < 0 {
-            cost_x = -cost_x;
-        }
-
-        if cost_y < 0 {
-            cost_y = -cost_y;
-        }
-
-        let cost = cost_x + cost_y;
-
-        u64::try_from(cost).unwrap()
     }
 
     fn compute_heuristic_combinations(&self) -> Option<Vec<(u64, u64)>> {
@@ -571,46 +491,5 @@ a_x,a_y,b_x,b_y,p_x,p_y
         }
 
         assert_eq!(total_cost, 480);
-    }
-
-    #[test]
-    fn sample_input_steepest_descend_part2_test() {
-        let data = "\
-a_x,a_y,b_x,b_y,p_x,p_y
-26,66,67,21,10000000012748,10000000012176";
-
-        let cfgs: Vec<ClawMachineConfiguration> = deserialize(data.as_bytes()).unwrap();
-
-        let mut total_cost = 0;
-        for (index, c) in cfgs.iter().enumerate() {
-            println!("Running machine {index}...");
-            let machine = ClawMachine::new(c, 1000, 1i64).unwrap();
-            let cheapest = machine.compute_cheapest_combination();
-
-            if let Some(cost) = machine.compute_steepest_descend_combinations() {
-                println!("Found cost possible costs");
-            }
-        }
-
-        assert_eq!(total_cost, 480);
-    }
-
-    #[test]
-    fn cost_function_test() {
-        let data = "\
-a_x,a_y,b_x,b_y,p_x,p_y
-26,66,67,21,10000000012748,10000000012176";
-
-        let cfgs: Vec<ClawMachineConfiguration> = deserialize(data.as_bytes()).unwrap();
-        for (index, c) in cfgs.iter().enumerate() {
-            println!("Running machine {index}...");
-            let machine = ClawMachine::new(c, 100, 100).unwrap();
-
-            let steps_a = 103200496270i64;
-            let steps_b = 118675644717i64;
-
-            machine.cost_function(steps_a, steps_b);
-            machine.cost_function(0, 0);
-        }
     }
 }

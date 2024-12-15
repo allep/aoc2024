@@ -14,6 +14,7 @@ struct Moves {
 impl Moves {
     pub fn make(raw_data: &str) -> Result<Moves, &'static str> {
         let moves: Vec<char> = raw_data
+            .trim()
             .as_bytes()
             .iter()
             .map(|b| *b as char)
@@ -37,6 +38,54 @@ impl Moves {
 
 struct WarehouseMap {
     positions: Vec<Vec<char>>,
+    rows: usize,
+    columns: usize,
+}
+
+impl WarehouseMap {
+    pub fn make(raw_data: &str) -> Result<WarehouseMap, &'static str> {
+        let lines: Vec<String> = raw_data.trim().split("\n").map(|s| s.to_string()).collect();
+        let num_rows = lines.len();
+        if num_rows == 0 {
+            return Err("No row deserialized");
+        }
+
+        let mut positions = Vec::new();
+        let mut is_ok = true;
+        let mut num_columns = 0;
+        for l in lines {
+            let chars: Vec<char> = l.chars().into_iter().collect();
+
+            let length = chars.len();
+            if num_columns == 0 {
+                num_columns = length;
+            } else {
+                if length != num_columns {
+                    is_ok = false;
+                }
+            }
+
+            positions.push(chars);
+        }
+
+        if !is_ok {
+            return Err("Wrong line length for map.");
+        }
+
+        Ok(WarehouseMap {
+            positions,
+            rows: num_rows,
+            columns: num_columns,
+        })
+    }
+
+    pub fn rows(&self) -> usize {
+        self.rows
+    }
+
+    pub fn columns(&self) -> usize {
+        self.columns
+    }
 }
 
 impl Config {
@@ -68,4 +117,30 @@ mod tests {
     use io::BufReader;
 
     use super::*;
+
+    #[test]
+    fn basic_moves_creation_test() {
+        let data = "\
+<^^>>>vv<v>>v<<";
+
+        let m = Moves::make(data).unwrap();
+        assert_eq!(m.moves.len(), 15);
+    }
+
+    #[test]
+    fn basic_map_creation_test() {
+        let data = "\
+########
+#..O.O.#
+##@.O..#
+#...O..#
+#.#.O..#
+#...O..#
+#......#
+########";
+
+        let map = WarehouseMap::make(data).unwrap();
+        assert_eq!(map.rows(), 8);
+        assert_eq!(map.columns(), 8);
+    }
 }

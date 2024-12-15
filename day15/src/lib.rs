@@ -202,6 +202,19 @@ impl WarehouseMap {
         }
     }
 
+    pub fn get_boxes_coordinates_sum(&self) -> u64 {
+        let mut total = 0u64;
+        for (iy, row) in self.positions.iter().enumerate() {
+            for (ix, c) in row.iter().enumerate() {
+                if *c == 'O' {
+                    total += u64::try_from(ix).unwrap() + 100 * u64::try_from(iy).unwrap();
+                }
+            }
+        }
+
+        total
+    }
+
     pub fn rows(&self) -> usize {
         self.rows
     }
@@ -313,5 +326,6 @@ mod tests {
             actual += &format!("{}\n", row);
         }
         assert_eq!(expected, actual.trim());
+        assert_eq!(map.get_boxes_coordinates_sum(), 2028);
     }
 }

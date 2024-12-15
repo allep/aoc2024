@@ -173,7 +173,7 @@ impl ClawMachine {
         let mut a = 10000000012748i64;
         let mut b = 10000000012176i64;
 
-        for ix in 0..1000000000 {
+        for ix in 0..10000000000u64 {
             let remainder = (
                 i64::try_from(self.prize.0).unwrap()
                     - a * i64::try_from(self.button_a.0).unwrap()
@@ -542,6 +542,7 @@ a_x,a_y,b_x,b_y,p_x,p_y
         assert_eq!(total_cost, 480);
     }
 
+    #[ignore]
     #[test]
     fn sample_input_part2_test() {
         //let data = "\
@@ -572,7 +573,6 @@ a_x,a_y,b_x,b_y,p_x,p_y
         assert_eq!(total_cost, 480);
     }
 
-    #[ignore]
     #[test]
     fn sample_input_steepest_descend_part2_test() {
         let data = "\
@@ -584,7 +584,7 @@ a_x,a_y,b_x,b_y,p_x,p_y
         let mut total_cost = 0;
         for (index, c) in cfgs.iter().enumerate() {
             println!("Running machine {index}...");
-            let machine = ClawMachine::new(c, 100, 1i64).unwrap();
+            let machine = ClawMachine::new(c, 1000, 1i64).unwrap();
             let cheapest = machine.compute_cheapest_combination();
 
             if let Some(cost) = machine.compute_steepest_descend_combinations() {

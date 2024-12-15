@@ -45,6 +45,7 @@ impl StepsByDimension {
     }
 }
 
+#[derive(Debug)]
 enum Movement {
     A((u64, u64)),
     B((u64, u64)),
@@ -174,18 +175,86 @@ impl ClawMachine {
         let eff_a = Self::get_efficiency(self.button_a, self.button_a_cost);
         let eff_b = Self::get_efficiency(self.button_b, self.button_b_cost);
 
-        let movement: Movement;
+        let main_movement: Movement;
         let other_movement: Movement;
         if eff_a > eff_b {
-            println!("Using main movement = A");
-            movement = Movement::A(self.button_a);
+            println!("Using main movement = A and other movement B");
+            main_movement = Movement::A(self.button_a);
             other_movement = Movement::B(self.button_b);
         } else {
-            println!("Using main movement = B");
-            movement = Movement::B(self.button_b);
+            println!("Using main movement = B and other movement A");
+            main_movement = Movement::B(self.button_b);
             other_movement = Movement::A(self.button_a);
         }
 
+        // compute max for each movement
+        let main_movement_max_dimension = main_movement.get_steps_upper_bound(self.prize);
+        let main_movement_max_steps = main_movement_max_dimension.get_steps();
+
+        let other_movement_max_dimension = other_movement.get_steps_upper_bound(self.prize);
+        let other_movement_max_steps = other_movement_max_dimension.get_steps();
+
+        // initial "theoretical" remainder
+        let main_movement_remainder_at_max = (
+            self.prize.0 - main_movement_max_steps * main_movement.get_steps().0,
+            self.prize.1 - main_movement_max_steps * main_movement.get_steps().1,
+        );
+
+        let other_movement_remainder_at_max = (
+            self.prize.0 - other_movement_max_steps * other_movement.get_steps().0,
+            self.prize.1 - other_movement_max_steps * other_movement.get_steps().1,
+            // here I need to use x for this case
+        );
+
+        let mut main_movement_min_steps;
+        match other_movement_max_dimension {
+            StepsByDimension::X(_) => {
+                main_movement_min_steps = main_movement
+                    .get_steps_upper_bound_for_y(other_movement_remainder_at_max)
+                    .get_steps();
+            }
+            StepsByDimension::Y(_) => {
+                main_movement_min_steps = main_movement
+                    .get_steps_upper_bound_for_x(other_movement_remainder_at_max)
+                    .get_steps();
+            }
+        };
+
+        let mut other_movement_min_steps;
+        match main_movement_max_dimension {
+            StepsByDimension::X(_) => {
+                other_movement_min_steps = other_movement
+                    .get_steps_upper_bound_for_y(main_movement_remainder_at_max)
+                    .get_steps();
+            }
+            StepsByDimension::Y(_) => {
+                other_movement_min_steps = other_movement
+                    .get_steps_upper_bound_for_x(main_movement_remainder_at_max)
+                    .get_steps();
+            }
+        };
+
+        // need to take the value that exceedes the prize in at least one dimension
+        let main_movement_max_steps_corrected = main_movement_max_steps + 1;
+        let other_movement_max_steps_corrected = other_movement_max_steps + 1;
+
+        let main_movement_delta = main_movement_max_steps_corrected - main_movement_min_steps;
+        let other_movement_delta = other_movement_max_steps_corrected - other_movement_min_steps;
+
+        dbg!(main_movement);
+        dbg!(other_movement);
+        dbg!(main_movement_min_steps);
+        dbg!(other_movement_min_steps);
+        dbg!(main_movement_max_steps_corrected);
+        dbg!(other_movement_max_steps_corrected);
+        dbg!(main_movement_delta);
+        dbg!(other_movement_delta);
+        dbg!(main_movement_remainder_at_max);
+        dbg!(other_movement_remainder_at_max);
+
+        return None;
+
+        // TODO FIXME OLD PART
         let mut main_movement_steps_num = 0;
         let mut other_movement_steps_num = 0;
         let mut other_movement_diff = (0u64, 0u64);
@@ -201,7 +270,7 @@ impl ClawMachine {
                 self.prize.0 - other_movement_diff.0,
                 self.prize.1 - other_movement_diff.1,
             );
-            let steps_by_dimension = movement.get_steps_upper_bound_for_x(updated_distance);
+            let steps_by_dimension = main_movement.get_steps_upper_bound_for_x(updated_distance);
             main_movement_steps_num = steps_by_dimension.get_steps();
 
             let current_combination = (main_movement_steps_num, other_movement_steps_num);
@@ -212,7 +281,7 @@ impl ClawMachine {
 
             let remainder = Self::get_remainder(
                 self.prize,
-                &movement,
+                &main_movement,
                 main_movement_steps_num,
                 &other_movement,
                 other_movement_steps_num,
@@ -462,7 +531,6 @@ a_x,a_y,b_x,b_y,p_x,p_y
         assert_eq!(total_cost, 480);
     }
 
-    #[ignore]
     #[test]
     fn sample_input_part2_test() {
         //let data = "\

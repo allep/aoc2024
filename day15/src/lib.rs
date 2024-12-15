@@ -209,13 +209,18 @@ impl WarehouseMap {
         }
 
         if success {
+            println!("Successfully moved from position.");
             if let Some(kind) = box_part {
+                println!("Moving second part of a box");
                 match *m {
                     Move::Up | Move::Down => {
                         let other_part_pos = match kind {
-                            BoxKind::Left => (current.0 + 1, 0),
-                            BoxKind::Right => (current.0 - 1, 0),
+                            BoxKind::Left => (current.0 + 1, current.1),
+                            BoxKind::Right => (current.0 - 1, current.1),
                         };
+                        println!(
+                            "Attempting to move vertical second part from pos {other_part_pos:?}"
+                        );
 
                         let candidate = self.get_pos_from_current_and_move(other_part_pos, m);
                         if let Some(pos) = candidate {
@@ -229,21 +234,23 @@ impl WarehouseMap {
                                 self.simulated_positions[pos.1][pos.0] = cur_object;
                                 self.simulated_positions[other_part_pos.1][other_part_pos.0] = '.';
 
-                                if cur_object == '@' {
-                                    self.position = pos;
-                                }
-
                                 return true;
                             }
+                            println!(
+                                "Couldn't move because next is either not free or couldn't move"
+                            );
                             return false;
                         }
+                        println!("Couldn't move because no candidate was available.");
                         return false;
                     }
                     _ => {
+                        println!("Horizontal movement - no need to do anything");
                         return true;
                     }
                 }
             } else {
+                println!("No need to do anything else.");
                 return true;
             }
         }
@@ -342,6 +349,19 @@ impl WarehouseMap {
         for (iy, row) in self.positions.iter().enumerate() {
             for (ix, c) in row.iter().enumerate() {
                 if *c == 'O' {
+                    total += u64::try_from(ix).unwrap() + 100 * u64::try_from(iy).unwrap();
+                }
+            }
+        }
+
+        total
+    }
+
+    pub fn get_boxes_coordinates_large_sum(&self) -> u64 {
+        let mut total = 0u64;
+        for (iy, row) in self.positions.iter().enumerate() {
+            for (ix, c) in row.iter().enumerate() {
+                if *c == '[' {
                     total += u64::try_from(ix).unwrap() + 100 * u64::try_from(iy).unwrap();
                 }
             }
@@ -500,7 +520,6 @@ mod tests {
         assert_eq!(map.get_boxes_coordinates_sum(), 2028);
     }
 
-    #[ignore]
     #[test]
     fn sample_map_part2_test() {
         let map_data = "\
@@ -555,9 +574,10 @@ v^^>>><<^^<>>^v^<v^vv<>v^<<>^<^v^v><^<<<><<^<v><v<>vv>>v><v^<vv<>v^<<^";
         println!("Actual map:\n{actual}");
 
         assert_eq!(expected, actual.trim());
-        assert_eq!(map.get_boxes_coordinates_sum(), 9021);
+        assert_eq!(map.get_boxes_coordinates_large_sum(), 9021);
     }
 
+    #[ignore]
     #[test]
     fn sample_map_part2_small_test() {
         let map_data = "\
@@ -604,6 +624,6 @@ v^^>>><<^^<>>^v^<v^vv<>v^<<>^<^v^v><^<<<><<^<v><v<>vv>>v><v^<vv<>v^<<^";
         println!("Actual map:\n{actual}");
 
         assert_eq!(expected, actual.trim());
-        assert_eq!(map.get_boxes_coordinates_sum(), 9021);
+        assert_eq!(map.get_boxes_coordinates_large_sum(), 618);
     }
 }

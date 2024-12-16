@@ -1,5 +1,4 @@
-use csv::Reader;
-use serde::de::DeserializeOwned;
+use std::collections::HashMap;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
 
@@ -26,6 +25,7 @@ struct Maze {
     columns: usize,
     position: (usize, usize),
     end: (usize, usize),
+    routers: Vec<Router>,
 }
 
 impl Maze {
@@ -80,12 +80,20 @@ impl Maze {
                     columns: num_columns,
                     position: start,
                     end,
+                    routers: Vec::new(),
                 });
             }
             _ => (),
         }
 
         Err("Either start or end positions not found.")
+    }
+
+    fn is_position_valid(position: (i32, i32), num_rows: usize, num_columns: usize) -> bool {
+        position.0 >= 0
+            && usize::try_from(position.0).unwrap() < num_columns
+            && position.1 >= 0
+            && usize::try_from(position.1).unwrap() < num_rows
     }
 
     pub fn rows(&self) -> usize {
@@ -101,9 +109,21 @@ impl Maze {
     }
 }
 
-pub fn run(config: Config) -> Result<(u32), Box<dyn Error>> {
+enum Direction {
+    Up,
+    Right,
+    Down,
+    Left,
+}
+
+struct Router {
+    position: (usize, usize),
+    metrics: HashMap<Direction, u64>,
+}
+
+pub fn run(config: Config) -> Result<u32, Box<dyn Error>> {
     // TODO
-    Ok((0))
+    Ok(0)
 }
 
 #[cfg(test)]

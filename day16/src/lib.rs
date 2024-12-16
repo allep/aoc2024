@@ -3,58 +3,95 @@ use serde::de::DeserializeOwned;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
 
-#[derive(Debug, serde::Deserialize)]
-struct Entry {
-    output_start: i32,
-    input_start: i32,
-    input_range: i32,
-}
-
 #[derive(Debug)]
 pub struct Config {
-    first_file: String,
-    second_file: String,
+    puzzle_input: String,
 }
 
 impl Config {
     pub fn build(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 3 {
+        if args.len() < 2 {
             return Err("Not enough arguments");
         }
 
-        let first_file = args[1].clone();
-        let second_file = args[2].clone();
+        let puzzle_input = args[1].clone();
 
-        Ok(Config {
-            first_file,
-            second_file,
+        Ok(Config { puzzle_input })
+    }
+}
+
+struct Maze {
+    cells: Vec<Vec<char>>,
+    rows: usize,
+    columns: usize,
+    position: (usize, usize),
+}
+
+impl Maze {
+    pub fn make(raw_data: &str) -> Result<Maze, &'static str> {
+        let lines: Vec<String> = raw_data.trim().split("\n").map(|s| s.to_string()).collect();
+        let num_rows = lines.len();
+        if num_rows == 0 {
+            return Err("No row deserialized");
+        }
+
+        let mut cells = Vec::new();
+        let mut is_ok = true;
+        let mut num_columns = 0;
+        for l in lines {
+            let chars: Vec<char> = l.chars().into_iter().collect();
+
+            let length = chars.len();
+            if num_columns == 0 {
+                num_columns = length;
+            } else {
+                if length != num_columns {
+                    is_ok = false;
+                }
+            }
+
+            cells.push(chars);
+        }
+
+        if !is_ok {
+            return Err("Wrong line length for map.");
+        }
+
+        let mut start_position = (0usize, 0usize);
+        for (iy, row) in cells.iter().enumerate() {
+            for (ix, c) in row.iter().enumerate() {
+                if *c == 'S' {
+                    start_position = (ix, iy);
+                    break;
+                }
+            }
+        }
+
+        Ok(Maze {
+            cells,
+            rows: num_rows,
+            columns: num_columns,
+            position: start_position,
         })
     }
-}
 
-fn deserialize<T, R>(reader: R) -> Result<Vec<T>, Box<dyn std::error::Error>>
-where
-    T: std::fmt::Debug + DeserializeOwned,
-    R: Read,
-{
-    let mut rdr = Reader::from_reader(reader);
-    let mut structs: Vec<T> = Vec::new();
-    for result in rdr.deserialize() {
-        let record: T = result?;
-        structs.push(record);
+    pub fn rows(&self) -> usize {
+        self.rows
     }
 
-    Ok(structs)
+    pub fn columns(&self) -> usize {
+        self.columns
+    }
+
+    pub fn position(&self) -> (usize, usize) {
+        self.position
+    }
 }
 
-pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
+pub fn run(config: Config) -> Result<(u32), Box<dyn Error>> {
     // TODO
-    Ok(())
+    Ok((0))
 }
-
-// Note on printing during tests:
-// - Run test sequentially in case of need with: cargo test -- --test-threads 1
-// - Do not capture test output for debug with: cargo test -- --nocapture
 
 #[cfg(test)]
 mod tests {
@@ -63,24 +100,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn proper_deserialize_from_slice_to_entry() {
-        // Note: must be without spaces
+    fn sample_input_test() {
         let data = "\
-output_start,input_start,input_range
-50,98,2
-52,50,48
-";
+###############
+#.......#....E#
+#.#.###.#.###.#
+#.....#.#...#.#
+#.###.#####.#.#
+#.#.#.......#.#
+#.#.#####.###.#
+#...........#.#
+###.#.#####.#.#
+#...#.....#.#.#
+#.#.#.###.#.#.#
+#.....#...#.#.#
+#.###.#.#.#.#.#
+#S..#.....#...#
+###############";
 
-        let structs: Vec<Entry> = deserialize(data.as_bytes()).unwrap();
-    }
+        let maze = Maze::make(data).unwrap();
 
-    #[test]
-    fn proper_deserialize_from_file_to_entry() {
-        // Note: must be without spaces and by default the base directory should be at the same
-        // level of src
-        let file = File::open("content/sample-content.csv").unwrap();
-        let reader = BufReader::new(file);
-
-        let structs: Vec<Entry> = deserialize(reader).unwrap();
+        assert_eq!(maze.rows(), 15);
+        assert_eq!(maze.columns(), 15);
+        assert_eq!(maze.position(), (1, 13));
     }
 }

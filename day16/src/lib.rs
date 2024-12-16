@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
 
@@ -89,11 +90,32 @@ impl Maze {
         Err("Either start or end positions not found.")
     }
 
-    fn is_position_valid(position: (i32, i32), num_rows: usize, num_columns: usize) -> bool {
+    fn compute_routing(&mut self) {
+        for (iy, row) in self.cells.iter().enumerate() {
+            for (ix, _) in row.iter().enumerate() {
+                if let Ok(router) = Router::try_make((ix, iy), self) {
+                    self.routers.push(router);
+                }
+            }
+        }
+    }
+
+    fn is_free_cell(&self, position: (i32, i32)) -> bool {
+        assert!(self.is_valid_cell(position));
+
+        let position = (
+            usize::try_from(position.0).unwrap(),
+            usize::try_from(position.1).unwrap(),
+        );
+
+        self.cells[position.1][position.0] != '#'
+    }
+
+    fn is_valid_cell(&self, position: (i32, i32)) -> bool {
         position.0 >= 0
-            && usize::try_from(position.0).unwrap() < num_columns
+            && usize::try_from(position.0).unwrap() < self.columns
             && position.1 >= 0
-            && usize::try_from(position.1).unwrap() < num_rows
+            && usize::try_from(position.1).unwrap() < self.rows
     }
 
     pub fn rows(&self) -> usize {
@@ -109,6 +131,7 @@ impl Maze {
     }
 }
 
+#[derive(Eq, PartialEq, Hash)]
 enum Direction {
     Up,
     Right,
@@ -118,7 +141,64 @@ enum Direction {
 
 struct Router {
     position: (usize, usize),
+    links: HashSet<Direction>,
     metrics: HashMap<Direction, u64>,
+}
+
+impl Router {
+    pub fn try_make(position: (usize, usize), maze: &Maze) -> Result<Router, &'static str> {
+        let pos_int = (
+            i32::try_from(position.0).unwrap(),
+            i32::try_from(position.1).unwrap(),
+        );
+
+        let up = (pos_int.0, pos_int.1 - 1);
+        let right = (pos_int.0 + 1, pos_int.1);
+        let down = (pos_int.0, pos_int.1 + 1);
+        let left = (pos_int.0 - 1, pos_int.1);
+
+        let up = maze.is_valid_cell(up) && maze.is_free_cell(up);
+        let right = maze.is_valid_cell(right) && maze.is_free_cell(right);
+        let down = maze.is_valid_cell(down) && maze.is_free_cell(down);
+        let left = maze.is_valid_cell(left) && maze.is_free_cell(left);
+
+        if (up || down) && (left || right) {
+            println!(
+                "Created router at ({}, {}) with links:",
+                position.0, position.1
+            );
+
+            let mut links = HashSet::new();
+
+            if up {
+                links.insert(Direction::Up);
+                println!(" - Up");
+            }
+
+            if right {
+                links.insert(Direction::Right);
+                println!(" - Right");
+            }
+
+            if down {
+                links.insert(Direction::Down);
+                println!(" - Down");
+            }
+
+            if left {
+                links.insert(Direction::Left);
+                println!(" - Left");
+            }
+
+            return Ok(Router {
+                position,
+                links,
+                metrics: HashMap::new(),
+            });
+        }
+
+        Err("Cell not valid for a router")
+    }
 }
 
 pub fn run(config: Config) -> Result<u32, Box<dyn Error>> {
@@ -151,10 +231,12 @@ mod tests {
 #S..#.....#...#
 ###############";
 
-        let maze = Maze::make(data).unwrap();
+        let mut maze = Maze::make(data).unwrap();
 
         assert_eq!(maze.rows(), 15);
         assert_eq!(maze.columns(), 15);
         assert_eq!(maze.position(), (1, 13));
+
+        maze.compute_routing();
     }
 }

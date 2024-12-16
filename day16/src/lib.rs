@@ -25,6 +25,7 @@ struct Maze {
     rows: usize,
     columns: usize,
     position: (usize, usize),
+    end: (usize, usize),
 }
 
 impl Maze {
@@ -57,22 +58,34 @@ impl Maze {
             return Err("Wrong line length for map.");
         }
 
-        let mut start_position = (0usize, 0usize);
+        let mut start_position = None;
+        let mut end_position = None;
         for (iy, row) in cells.iter().enumerate() {
             for (ix, c) in row.iter().enumerate() {
                 if *c == 'S' {
-                    start_position = (ix, iy);
-                    break;
+                    start_position = Some((ix, iy));
+                }
+
+                if *c == 'E' {
+                    end_position = Some((ix, iy));
                 }
             }
         }
 
-        Ok(Maze {
-            cells,
-            rows: num_rows,
-            columns: num_columns,
-            position: start_position,
-        })
+        match (start_position, end_position) {
+            (Some(start), Some(end)) => {
+                return Ok(Maze {
+                    cells,
+                    rows: num_rows,
+                    columns: num_columns,
+                    position: start,
+                    end,
+                });
+            }
+            _ => (),
+        }
+
+        Err("Either start or end positions not found.")
     }
 
     pub fn rows(&self) -> usize {

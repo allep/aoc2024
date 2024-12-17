@@ -26,8 +26,10 @@ struct Maze {
     columns: usize,
     position: (usize, usize),
     end: (usize, usize),
-    routers: Vec<Router>,
+    routers: HashMap<(usize, usize), Router>,
     dead_ends: Vec<(usize, usize)>,
+
+    already_walked_positions: Vec<(usize, usize)>,
 }
 
 impl Maze {
@@ -82,8 +84,9 @@ impl Maze {
                     columns: num_columns,
                     position: start,
                     end,
-                    routers: Vec::new(),
+                    routers: HashMap::new(),
                     dead_ends: Vec::new(),
+                    already_walked_positions: Vec::new(),
                 });
             }
             _ => (),
@@ -97,7 +100,7 @@ impl Maze {
             for (ix, _) in row.iter().enumerate() {
                 let position = (ix, iy);
                 if let Ok(router) = Router::try_make(position, self) {
-                    self.routers.push(router);
+                    self.routers.insert(position, router);
                 }
 
                 if self.is_dead_end_cell(position) {
@@ -106,9 +109,92 @@ impl Maze {
             }
         }
 
-        // start from end position
-        // look for possible directions
-        // for each direction walk through that until a router or dead point
+        self.compute_routing_metrics_from_position(self.end, 0, None);
+    }
+
+    fn compute_routing_metrics_from_position(
+        &mut self,
+        position: (usize, usize),
+        current_score: u64,
+        from_direction: Option<Direction>,
+    ) {
+        if self.already_walked_positions.contains(&position) {
+            println!("Position already walked ({}, {})", position.0, position.1);
+            return;
+        }
+
+        self.already_walked_positions.push(position);
+
+        let mut directions = self.get_valid_free_cells_around(position);
+
+        if let Some(direction) = from_direction {
+            directions.retain(|d| *d != direction);
+        }
+
+        for d in directions.iter() {
+            let mut cur_dir_score = current_score;
+            if let Some(from_direction) = from_direction {
+                if *d != from_direction {
+                    cur_dir_score += 1000;
+                }
+            }
+
+            let mut current = position;
+            while let Some(next) = self.get_next_cell(current, *d) {
+                current = next;
+                cur_dir_score += 1;
+
+                if self.is_router_cell(current) {
+                    println!("Updating metrics on router in {current:?}");
+
+                    match self.routers.get_mut(&current) {
+                        Some(router) => router.update_distance_metric_from_dir(cur_dir_score, *d),
+                        _ => (),
+                    }
+
+                    // TODO: not sure if this will have the right values at the end of the day
+                    self.compute_routing_metrics_from_position(current, current_score, Some(*d));
+                }
+            }
+        }
+    }
+
+    fn get_next_cell(
+        &self,
+        position: (usize, usize),
+        direction: Direction,
+    ) -> Option<(usize, usize)> {
+        let position = (
+            i32::try_from(position.0).unwrap(),
+            i32::try_from(position.1).unwrap(),
+        );
+
+        if !self.is_valid_cell(position) || !self.is_free_cell(position) {
+            return None;
+        }
+
+        match direction {
+            Direction::Up => Some((
+                usize::try_from(position.0).unwrap(),
+                usize::try_from(position.1 - 1).unwrap(),
+            )),
+            Direction::Right => Some((
+                usize::try_from(position.0 + 1).unwrap(),
+                usize::try_from(position.1).unwrap(),
+            )),
+            Direction::Down => Some((
+                usize::try_from(position.0).unwrap(),
+                usize::try_from(position.1 + 1).unwrap(),
+            )),
+            Direction::Left => Some((
+                usize::try_from(position.0 - 1).unwrap(),
+                usize::try_from(position.1).unwrap(),
+            )),
+        }
+    }
+
+    fn is_router_cell(&self, position: (usize, usize)) -> bool {
+        self.routers.contains_key(&position)
     }
 
     fn is_free_cell(&self, position: (i32, i32)) -> bool {
@@ -177,6 +263,22 @@ impl Maze {
         links
     }
 
+    pub fn get_min_score(&self) -> u64 {
+        if let Some(router) = self.routers.get(&self.position) {
+            let mut scores = Vec::new();
+
+            for s in router.metrics.iter() {
+                scores.push(*s.1);
+            }
+
+            if let Some(min) = scores.iter().min() {
+                return *min;
+            }
+        }
+
+        0
+    }
+
     pub fn rows(&self) -> usize {
         self.rows
     }
@@ -194,9 +296,8 @@ impl Maze {
     }
 }
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
 enum Direction {
-    Nil,
     Up,
     Right,
     Down,
@@ -255,6 +356,15 @@ impl Router {
 
         Err("Cell not valid for a router")
     }
+
+    pub fn update_distance_metric_from_dir(&mut self, score: u64, from_direction: Direction) {
+        match from_direction {
+            Direction::Up => self.metrics.insert(Direction::Down, score),
+            Direction::Right => self.metrics.insert(Direction::Left, score),
+            Direction::Down => self.metrics.insert(Direction::Up, score),
+            Direction::Left => self.metrics.insert(Direction::Right, score),
+        };
+    }
 }
 
 pub fn run(config: Config) -> Result<u32, Box<dyn Error>> {
@@ -294,9 +404,6 @@ mod tests {
         assert_eq!(maze.position(), (1, 13));
 
         maze.compute_routing();
-
-        for d in maze.dead_cells().iter() {
-            println!("Found dead end: ({}, {})", d.0, d.1);
-        }
+        println!("Min score is {}", maze.get_min_score());
     }
 }

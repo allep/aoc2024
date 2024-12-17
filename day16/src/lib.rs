@@ -115,7 +115,9 @@ impl Maze {
             }
         }
 
-        self.compute_routing_metrics_from_position(self.end, 0, None);
+        let ttl: u64 = (self.rows as u64) * (self.columns as u64);
+        println!("TTL is {ttl}");
+        self.compute_routing_metrics_from_position(self.end, 0, None, ttl);
     }
 
     fn compute_routing_metrics_from_position(
@@ -123,36 +125,29 @@ impl Maze {
         position: (usize, usize),
         current_score: u64,
         from_direction: Option<Direction>,
+        mut ttl: u64,
     ) {
-        if self.stop {
-            println!("Stopping");
+        if ttl <= 1 {
             return;
         }
+
+        ttl -= 1;
 
         if self.is_returned_to_end_cell(position, from_direction) {
             println!("Returned to end position with score = {current_score}");
             return;
         }
 
-        if let Some(previous_score) = self.already_walked_positions.get(&position) {
-            if *previous_score <= current_score {
-                // println!(
-                // "Already walked in position ({}, {}) with a lower score",
-                // position.0, position.1
-                // );
-                return;
-            }
+        if self.dead_ends.contains(&position) {
+            println!(
+                "Found dead end at ({}, {}), returning.",
+                position.0, position.1
+            );
+            return;
         }
 
         // basic checks: is end or start?
         if position == self.position {
-            self.start_walked += 1;
-
-            // FIXME TODO
-            if self.start_walked > 2 {
-                self.stop = true;
-            }
-
             println!("Found starting position with score = {current_score}");
             return;
         }
@@ -187,15 +182,27 @@ impl Maze {
                 cur_dir_score += 1;
 
                 if self.is_router_cell(current) {
-                    // println!("Updating {cur_dir_score} on router in {current:?}");
+                    println!("Updating {cur_dir_score} on router in {current:?}");
 
-                    match self.routers.get_mut(&current) {
+                    let already_walked = match self.routers.get_mut(&current) {
                         Some(router) => router.update_distance_metric_from_dir(cur_dir_score, *d),
-                        _ => (),
-                    }
+                        _ => false,
+                    };
 
-                    // TODO: not sure if this will have the right values at the end of the day
-                    self.compute_routing_metrics_from_position(current, cur_dir_score, Some(*d));
+                    if !already_walked {
+                        // TODO: not sure if this will have the right values at the end of the day
+                        self.compute_routing_metrics_from_position(
+                            current,
+                            cur_dir_score,
+                            Some(*d),
+                            ttl,
+                        );
+                    } else {
+                        println!(
+                            "Router position ({}, {}) already walked",
+                            current.0, current.1
+                        );
+                    }
                 }
             }
         }
@@ -264,6 +271,22 @@ impl Maze {
         self.cells[position.1][position.0] != '#'
     }
 
+    fn is_start_cell(&self, position: (i32, i32)) -> bool {
+        let position = (
+            usize::try_from(position.0).unwrap(),
+            usize::try_from(position.1).unwrap(),
+        );
+        self.cells[position.1][position.0] == 'S'
+    }
+
+    fn is_end_cell(&self, position: (i32, i32)) -> bool {
+        let position = (
+            usize::try_from(position.0).unwrap(),
+            usize::try_from(position.1).unwrap(),
+        );
+        self.cells[position.1][position.0] == 'E'
+    }
+
     fn is_valid_cell(&self, position: (i32, i32)) -> bool {
         position.0 >= 0
             && usize::try_from(position.0).unwrap() < self.columns
@@ -279,7 +302,11 @@ impl Maze {
             i32::try_from(position.1).unwrap(),
         );
 
-        self.is_free_cell(position) && links.len() > 0 && links.len() < 2
+        self.is_free_cell(position)
+            && !self.is_end_cell(position)
+            && !self.is_start_cell(position)
+            && links.len() > 0
+            && links.len() < 2
     }
 
     pub fn get_valid_free_cells_around(&self, position: (usize, usize)) -> Vec<Direction> {
@@ -413,7 +440,12 @@ impl Router {
         Err("Cell not valid for a router")
     }
 
-    pub fn update_distance_metric_from_dir(&mut self, score: u64, from_direction: Direction) {
+    pub fn update_distance_metric_from_dir(
+        &mut self,
+        score: u64,
+        from_direction: Direction,
+    ) -> bool {
+        let mut already_walked = false;
         match from_direction {
             Direction::Up => self
                 .metrics
@@ -421,6 +453,8 @@ impl Router {
                 .and_modify(|c| {
                     if *c > score {
                         *c = score;
+                    } else {
+                        already_walked = true;
                     }
                 })
                 .or_insert(score),
@@ -430,6 +464,8 @@ impl Router {
                 .and_modify(|c| {
                     if *c > score {
                         *c = score;
+                    } else {
+                        already_walked = true;
                     }
                 })
                 .or_insert(score),
@@ -439,6 +475,8 @@ impl Router {
                 .and_modify(|c| {
                     if *c > score {
                         *c = score;
+                    } else {
+                        already_walked = true;
                     }
                 })
                 .or_insert(score),
@@ -448,10 +486,14 @@ impl Router {
                 .and_modify(|c| {
                     if *c > score {
                         *c = score;
+                    } else {
+                        already_walked = true;
                     }
                 })
                 .or_insert(score),
         };
+
+        return already_walked;
     }
 }
 

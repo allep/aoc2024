@@ -182,8 +182,6 @@ impl Maze {
                 cur_dir_score += 1;
 
                 if self.is_router_cell(current) {
-                    println!("Updating {cur_dir_score} on router in {current:?}");
-
                     let already_walked = match self.routers.get_mut(&current) {
                         Some(router) => router.update_distance_metric_from_dir(cur_dir_score, *d),
                         _ => false,
@@ -191,16 +189,15 @@ impl Maze {
 
                     if !already_walked {
                         // TODO: not sure if this will have the right values at the end of the day
+                        println!(
+                            "Updating {cur_dir_score} on router in {current:?} from {position:?}"
+                        );
+
                         self.compute_routing_metrics_from_position(
                             current,
                             cur_dir_score,
                             Some(*d),
                             ttl,
-                        );
-                    } else {
-                        println!(
-                            "Router position ({}, {}) already walked",
-                            current.0, current.1
                         );
                     }
                 }

@@ -29,7 +29,7 @@ struct Maze {
     routers: HashMap<(usize, usize), Router>,
     dead_ends: Vec<(usize, usize)>,
 
-    already_walked_positions: Vec<(usize, usize)>,
+    already_walked_positions: HashMap<(usize, usize), u64>,
 }
 
 impl Maze {
@@ -86,7 +86,7 @@ impl Maze {
                     end,
                     routers: HashMap::new(),
                     dead_ends: Vec::new(),
-                    already_walked_positions: Vec::new(),
+                    already_walked_positions: HashMap::new(),
                 });
             }
             _ => (),
@@ -118,17 +118,42 @@ impl Maze {
         current_score: u64,
         from_direction: Option<Direction>,
     ) {
-        if self.already_walked_positions.contains(&position) {
-            println!("Position already walked ({}, {})", position.0, position.1);
+        // basic checks: is end or start?
+        if position == self.position {
+            println!("Found starting position with score = {current_score}");
             return;
         }
 
-        self.already_walked_positions.push(position);
+        if self.is_returned_to_end_cell(position, from_direction) {
+            println!("Returned to end position with score = {current_score}");
+            return;
+        }
+
+        // TODO: this condition is wrong
+        if let Some(previous_score) = self.already_walked_positions.get(&position) {
+            if *previous_score < current_score {
+                println!(
+                    "Already walked in position ({}, {}) with a lower score",
+                    position.0, position.1
+                );
+                return;
+            }
+        }
+
+        self.already_walked_positions
+            .entry(position)
+            .and_modify(|counter| *counter = current_score)
+            .or_insert(current_score);
 
         let mut directions = self.get_valid_free_cells_around(position);
 
         if let Some(direction) = from_direction {
-            directions.retain(|d| *d != direction);
+            match direction {
+                Direction::Up => directions.retain(|d| *d != Direction::Down),
+                Direction::Right => directions.retain(|d| *d != Direction::Left),
+                Direction::Down => directions.retain(|d| *d != Direction::Up),
+                Direction::Left => directions.retain(|d| *d != Direction::Right),
+            }
         }
 
         for d in directions.iter() {
@@ -145,7 +170,7 @@ impl Maze {
                 cur_dir_score += 1;
 
                 if self.is_router_cell(current) {
-                    println!("Updating metrics on router in {current:?}");
+                    println!("Updating {cur_dir_score} on router in {current:?}");
 
                     match self.routers.get_mut(&current) {
                         Some(router) => router.update_distance_metric_from_dir(cur_dir_score, *d),
@@ -153,7 +178,7 @@ impl Maze {
                     }
 
                     // TODO: not sure if this will have the right values at the end of the day
-                    self.compute_routing_metrics_from_position(current, current_score, Some(*d));
+                    self.compute_routing_metrics_from_position(current, cur_dir_score, Some(*d));
                 }
             }
         }
@@ -191,6 +216,20 @@ impl Maze {
                 usize::try_from(position.1).unwrap(),
             )),
         }
+    }
+
+    fn is_returned_to_end_cell(
+        &self,
+        position: (usize, usize),
+        direction: Option<Direction>,
+    ) -> bool {
+        if let Some(direction) = direction {
+            if position == self.end {
+                return true;
+            }
+        }
+
+        false
     }
 
     fn is_router_cell(&self, position: (usize, usize)) -> bool {
@@ -359,10 +398,42 @@ impl Router {
 
     pub fn update_distance_metric_from_dir(&mut self, score: u64, from_direction: Direction) {
         match from_direction {
-            Direction::Up => self.metrics.insert(Direction::Down, score),
-            Direction::Right => self.metrics.insert(Direction::Left, score),
-            Direction::Down => self.metrics.insert(Direction::Up, score),
-            Direction::Left => self.metrics.insert(Direction::Right, score),
+            Direction::Up => self
+                .metrics
+                .entry(Direction::Down)
+                .and_modify(|c| {
+                    if *c > score {
+                        *c = score;
+                    }
+                })
+                .or_insert(score),
+            Direction::Right => self
+                .metrics
+                .entry(Direction::Left)
+                .and_modify(|c| {
+                    if *c > score {
+                        *c = score;
+                    }
+                })
+                .or_insert(score),
+            Direction::Down => self
+                .metrics
+                .entry(Direction::Up)
+                .and_modify(|c| {
+                    if *c > score {
+                        *c = score;
+                    }
+                })
+                .or_insert(score),
+            Direction::Left => self
+                .metrics
+                .entry(Direction::Right)
+                .and_modify(|c| {
+                    if *c > score {
+                        *c = score;
+                    }
+                })
+                .or_insert(score),
         };
     }
 }

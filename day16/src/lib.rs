@@ -27,6 +27,7 @@ struct Maze {
     position: (usize, usize),
     end: (usize, usize),
     routers: Vec<Router>,
+    dead_ends: Vec<(usize, usize)>,
 }
 
 impl Maze {
@@ -82,6 +83,7 @@ impl Maze {
                     position: start,
                     end,
                     routers: Vec::new(),
+                    dead_ends: Vec::new(),
                 });
             }
             _ => (),
@@ -93,11 +95,20 @@ impl Maze {
     fn compute_routing(&mut self) {
         for (iy, row) in self.cells.iter().enumerate() {
             for (ix, _) in row.iter().enumerate() {
-                if let Ok(router) = Router::try_make((ix, iy), self) {
+                let position = (ix, iy);
+                if let Ok(router) = Router::try_make(position, self) {
                     self.routers.push(router);
+                }
+
+                if self.is_dead_end_cell(position) {
+                    self.dead_ends.push(position);
                 }
             }
         }
+
+        // start from end position
+        // look for possible directions
+        // for each direction walk through that until a router or dead point
     }
 
     fn is_free_cell(&self, position: (i32, i32)) -> bool {
@@ -118,6 +129,54 @@ impl Maze {
             && usize::try_from(position.1).unwrap() < self.rows
     }
 
+    fn is_dead_end_cell(&self, position: (usize, usize)) -> bool {
+        let links = self.get_valid_free_cells_around(position);
+
+        let position = (
+            i32::try_from(position.0).unwrap(),
+            i32::try_from(position.1).unwrap(),
+        );
+
+        self.is_free_cell(position) && links.len() > 0 && links.len() < 2
+    }
+
+    pub fn get_valid_free_cells_around(&self, position: (usize, usize)) -> Vec<Direction> {
+        let pos_int = (
+            i32::try_from(position.0).unwrap(),
+            i32::try_from(position.1).unwrap(),
+        );
+
+        let up = (pos_int.0, pos_int.1 - 1);
+        let right = (pos_int.0 + 1, pos_int.1);
+        let down = (pos_int.0, pos_int.1 + 1);
+        let left = (pos_int.0 - 1, pos_int.1);
+
+        let up = self.is_valid_cell(up) && self.is_free_cell(up);
+        let right = self.is_valid_cell(right) && self.is_free_cell(right);
+        let down = self.is_valid_cell(down) && self.is_free_cell(down);
+        let left = self.is_valid_cell(left) && self.is_free_cell(left);
+
+        let mut links = Vec::new();
+
+        if up {
+            links.push(Direction::Up);
+        }
+
+        if right {
+            links.push(Direction::Right);
+        }
+
+        if down {
+            links.push(Direction::Down);
+        }
+
+        if left {
+            links.push(Direction::Left);
+        }
+
+        links
+    }
+
     pub fn rows(&self) -> usize {
         self.rows
     }
@@ -129,10 +188,15 @@ impl Maze {
     pub fn position(&self) -> (usize, usize) {
         self.position
     }
+
+    pub fn dead_cells(&self) -> Vec<(usize, usize)> {
+        self.dead_ends.clone()
+    }
 }
 
 #[derive(Eq, PartialEq, Hash)]
 enum Direction {
+    Nil,
     Up,
     Right,
     Down,
@@ -147,20 +211,12 @@ struct Router {
 
 impl Router {
     pub fn try_make(position: (usize, usize), maze: &Maze) -> Result<Router, &'static str> {
-        let pos_int = (
-            i32::try_from(position.0).unwrap(),
-            i32::try_from(position.1).unwrap(),
-        );
+        let free_valid_positions = maze.get_valid_free_cells_around(position);
 
-        let up = (pos_int.0, pos_int.1 - 1);
-        let right = (pos_int.0 + 1, pos_int.1);
-        let down = (pos_int.0, pos_int.1 + 1);
-        let left = (pos_int.0 - 1, pos_int.1);
-
-        let up = maze.is_valid_cell(up) && maze.is_free_cell(up);
-        let right = maze.is_valid_cell(right) && maze.is_free_cell(right);
-        let down = maze.is_valid_cell(down) && maze.is_free_cell(down);
-        let left = maze.is_valid_cell(left) && maze.is_free_cell(left);
+        let up = free_valid_positions.contains(&Direction::Up);
+        let down = free_valid_positions.contains(&Direction::Down);
+        let left = free_valid_positions.contains(&Direction::Left);
+        let right = free_valid_positions.contains(&Direction::Right);
 
         if (up || down) && (left || right) {
             println!(
@@ -238,5 +294,9 @@ mod tests {
         assert_eq!(maze.position(), (1, 13));
 
         maze.compute_routing();
+
+        for d in maze.dead_cells().iter() {
+            println!("Found dead end: ({}, {})", d.0, d.1);
+        }
     }
 }

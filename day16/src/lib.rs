@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fs;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
 
@@ -30,6 +31,9 @@ struct Maze {
     dead_ends: Vec<(usize, usize)>,
 
     already_walked_positions: HashMap<(usize, usize), u64>,
+
+    start_walked: u64,
+    stop: bool,
 }
 
 impl Maze {
@@ -87,6 +91,8 @@ impl Maze {
                     routers: HashMap::new(),
                     dead_ends: Vec::new(),
                     already_walked_positions: HashMap::new(),
+                    start_walked: 0,
+                    stop: false,
                 });
             }
             _ => (),
@@ -118,9 +124,8 @@ impl Maze {
         current_score: u64,
         from_direction: Option<Direction>,
     ) {
-        // basic checks: is end or start?
-        if position == self.position {
-            println!("Found starting position with score = {current_score}");
+        if self.stop {
+            println!("Stopping");
             return;
         }
 
@@ -129,15 +134,27 @@ impl Maze {
             return;
         }
 
-        // TODO: this condition is wrong
         if let Some(previous_score) = self.already_walked_positions.get(&position) {
-            if *previous_score < current_score {
-                println!(
-                    "Already walked in position ({}, {}) with a lower score",
-                    position.0, position.1
-                );
+            if *previous_score <= current_score {
+                // println!(
+                // "Already walked in position ({}, {}) with a lower score",
+                // position.0, position.1
+                // );
                 return;
             }
+        }
+
+        // basic checks: is end or start?
+        if position == self.position {
+            self.start_walked += 1;
+
+            // FIXME TODO
+            if self.start_walked > 2 {
+                self.stop = true;
+            }
+
+            println!("Found starting position with score = {current_score}");
+            return;
         }
 
         self.already_walked_positions
@@ -170,7 +187,7 @@ impl Maze {
                 cur_dir_score += 1;
 
                 if self.is_router_cell(current) {
-                    println!("Updating {cur_dir_score} on router in {current:?}");
+                    // println!("Updating {cur_dir_score} on router in {current:?}");
 
                     match self.routers.get_mut(&current) {
                         Some(router) => router.update_distance_metric_from_dir(cur_dir_score, *d),
@@ -438,9 +455,14 @@ impl Router {
     }
 }
 
-pub fn run(config: Config) -> Result<u32, Box<dyn Error>> {
-    // TODO
-    Ok(0)
+pub fn run(config: Config) -> Result<u64, Box<dyn Error>> {
+    let raw_content = fs::read_to_string(config.puzzle_input)?;
+    let mut maze = Maze::make(&raw_content).unwrap();
+
+    maze.compute_routing();
+    let score = maze.get_min_score();
+
+    Ok(score)
 }
 
 #[cfg(test)]

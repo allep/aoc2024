@@ -31,9 +31,7 @@ struct Maze {
     dead_ends: Vec<(usize, usize)>,
 
     already_walked_positions: HashMap<(usize, usize), u64>,
-
-    start_walked: u64,
-    stop: bool,
+    unique_best_paths_cells: HashSet<(usize, usize)>,
 }
 
 impl Maze {
@@ -91,8 +89,7 @@ impl Maze {
                     routers: HashMap::new(),
                     dead_ends: Vec::new(),
                     already_walked_positions: HashMap::new(),
-                    start_walked: 0,
-                    stop: false,
+                    unique_best_paths_cells: HashSet::new(),
                 });
             }
             _ => (),
@@ -385,6 +382,82 @@ impl Maze {
         0
     }
 
+    pub fn walk_through_best_paths(&mut self) {
+        let mut min_metric = 0;
+        let mut min_directions: HashMap<u64, Vec<Direction>> = HashMap::new();
+        if let Some(start_router) = self.routers.get(&self.position) {
+            for entry in start_router.metrics.iter() {
+                if min_metric == 0 {
+                    min_metric = *entry.1;
+                }
+
+                if *entry.1 < min_metric {
+                    min_metric = *entry.1;
+                }
+
+                min_directions
+                    .entry(*entry.1)
+                    .and_modify(|d| d.push(*entry.0))
+                    .or_insert(vec![*entry.0]);
+            }
+        }
+
+        self.unique_best_paths_cells.insert(self.position);
+
+        // now actually walk through using always the same lowest metrics
+        if let Some(min_directions) = min_directions.get(&min_metric) {
+            for d in min_directions {
+                self.walk_to_router_or_end(self.position, *d);
+            }
+        }
+    }
+
+    fn walk_to_router_or_end(&mut self, from: (usize, usize), direction: Direction) {
+        let mut current = from;
+        while let Some(next) = self.get_next_cell(current, direction) {
+            current = next;
+            self.unique_best_paths_cells.insert(current);
+
+            if self.end == current {
+                return;
+            }
+
+            if self.is_router_cell(current) {
+                let mut min_metric = 0;
+                let mut min_directions: HashMap<u64, Vec<Direction>> = HashMap::new();
+                if let Some(router) = self.routers.get(&current) {
+                    for entry in router.metrics.iter() {
+                        if min_metric == 0 {
+                            min_metric = *entry.1;
+                        }
+
+                        if *entry.1 < min_metric {
+                            min_metric = *entry.1;
+                        }
+
+                        min_directions
+                            .entry(*entry.1)
+                            .and_modify(|d| d.push(*entry.0))
+                            .or_insert(vec![*entry.0]);
+                    }
+                }
+
+                if let Some(min_directions) = min_directions.get(&min_metric) {
+                    for d in min_directions {
+                        self.walk_to_router_or_end(current, *d);
+                    }
+                }
+
+                break;
+            }
+        }
+    }
+
+    pub fn count_unique_best_paths_cells(&self) -> u64 {
+        dbg!(&self.unique_best_paths_cells);
+        self.unique_best_paths_cells.len() as u64
+    }
+
     pub fn rows(&self) -> usize {
         self.rows
     }
@@ -402,7 +475,7 @@ impl Maze {
     }
 }
 
-#[derive(Eq, PartialEq, Hash, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 enum Direction {
     Up,
     Right,
@@ -574,5 +647,9 @@ mod tests {
 
         maze.compute_routing();
         assert_eq!(maze.get_min_score(), 7036);
+
+        maze.walk_through_best_paths();
+        let unique = maze.count_unique_best_paths_cells();
+        assert_eq!(unique, 45);
     }
 }

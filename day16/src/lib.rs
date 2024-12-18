@@ -125,13 +125,11 @@ impl Maze {
         position: (usize, usize),
         current_score: u64,
         from_direction: Option<Direction>,
-        mut ttl: u64,
+        ttl: u64,
     ) {
         if ttl <= 1 {
             return;
         }
-
-        ttl -= 1;
 
         if self.is_returned_to_end_cell(position, from_direction) {
             println!("Returned to end position with score = {current_score}");
@@ -148,7 +146,19 @@ impl Maze {
 
         // basic checks: is end or start?
         if position == self.position {
-            println!("Found starting position with score = {current_score}");
+            match from_direction {
+                Some(direction) => {
+                    println!(
+                        "Found starting position with score = {current_score} from direction {}",
+                        direction.to_str()
+                    );
+                }
+                None => {
+                    println!(
+                        "Found starting position with score = {current_score} from direction None"
+                    );
+                }
+            }
             return;
         }
 
@@ -177,9 +187,15 @@ impl Maze {
             }
 
             let mut current = position;
+            let mut ttl = ttl;
             while let Some(next) = self.get_next_cell(current, *d) {
+                if ttl <= 1 {
+                    break;
+                }
+
                 current = next;
                 cur_dir_score += 1;
+                ttl -= 1;
 
                 if self.is_router_cell(current) {
                     let already_walked = match self.routers.get_mut(&current) {
@@ -199,9 +215,9 @@ impl Maze {
 
                     if !already_walked {
                         // TODO: not sure if this will have the right values at the end of the day
-                        println!(
-                            "Updating {cur_dir_score} on router in {current:?} from {position:?}"
-                        );
+                        // println!(
+                        // "Updating {cur_dir_score} on router in {current:?} from {position:?}"
+                        // );
 
                         self.compute_routing_metrics_from_position(
                             current,
@@ -392,6 +408,17 @@ enum Direction {
     Right,
     Down,
     Left,
+}
+
+impl Direction {
+    fn to_str(&self) -> &str {
+        match self {
+            Direction::Up => "Up",
+            Direction::Right => "Right",
+            Direction::Down => "Down",
+            Direction::Left => "Left",
+        }
+    }
 }
 
 struct Router {

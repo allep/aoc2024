@@ -204,7 +204,7 @@ impl Maze {
                                 match d {
                                     Direction::Up => cur_dir_score += 1000,
                                     Direction::Down => cur_dir_score += 1000,
-                                    Direction::Left => cur_dir_score += 2000,
+                                    Direction::Right => cur_dir_score += 2000,
                                     _ => (),
                                 }
                             };

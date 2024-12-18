@@ -183,7 +183,17 @@ impl Maze {
 
                 if self.is_router_cell(current) {
                     let already_walked = match self.routers.get_mut(&current) {
-                        Some(router) => router.update_distance_metric_from_dir(cur_dir_score, *d),
+                        Some(router) => {
+                            if current == self.position {
+                                match d {
+                                    Direction::Up => cur_dir_score += 1000,
+                                    Direction::Down => cur_dir_score += 1000,
+                                    Direction::Left => cur_dir_score += 2000,
+                                    _ => (),
+                                }
+                            };
+                            router.update_distance_metric_from_dir(cur_dir_score, *d)
+                        }
                         _ => false,
                     };
 
@@ -536,6 +546,6 @@ mod tests {
         assert_eq!(maze.position(), (1, 13));
 
         maze.compute_routing();
-        println!("Min score is {}", maze.get_min_score());
+        assert_eq!(maze.get_min_score(), 7036);
     }
 }

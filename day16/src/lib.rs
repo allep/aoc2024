@@ -626,6 +626,7 @@ pub fn run(config: Config) -> Result<(u64, u64), Box<dyn Error>> {
 
     maze.compute_routing();
     let score = maze.get_min_score();
+    maze.walk_through_best_paths();
     let unique = maze.count_unique_best_paths_cells();
 
     Ok((score, unique))

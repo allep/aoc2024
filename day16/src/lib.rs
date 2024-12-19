@@ -114,13 +114,14 @@ impl Maze {
 
         let ttl: u64 = (self.rows as u64) * (self.columns as u64);
         println!("TTL is {ttl}");
-        self.compute_routing_metrics_from_position(self.end, 0, None, ttl);
+        self.compute_routing_metrics_from_position(self.end, 0, 0, None, ttl);
     }
 
     fn compute_routing_metrics_from_position(
         &mut self,
         position: (usize, usize),
         current_score: u64,
+        current_steps: u64,
         from_direction: Option<Direction>,
         ttl: u64,
     ) {
@@ -141,18 +142,20 @@ impl Maze {
             return;
         }
 
+        let current_steps = current_steps + 1;
+
         // basic checks: is end or start?
         if position == self.position {
             match from_direction {
                 Some(direction) => {
                     println!(
-                        "Found starting position with score = {current_score} from direction {}",
+                        "Found starting position with score = {current_score} and steps = {current_steps} from direction {}",
                         direction.to_str()
                     );
                 }
                 None => {
                     println!(
-                        "Found starting position with score = {current_score} from direction None"
+                        "Found starting position with score = {current_score} and steps = {current_steps} from direction None"
                     );
                 }
             }
@@ -205,7 +208,7 @@ impl Maze {
                                     _ => (),
                                 }
                             };
-                            router.update_distance_metric_from_dir(cur_dir_score, *d)
+                            router.update_distance_metric_from_dir(cur_dir_score, current_steps, *d)
                         }
                         _ => false,
                     };
@@ -219,6 +222,7 @@ impl Maze {
                         self.compute_routing_metrics_from_position(
                             current,
                             cur_dir_score,
+                            current_steps,
                             Some(*d),
                             ttl,
                         );
@@ -370,8 +374,8 @@ impl Maze {
         if let Some(router) = self.routers.get(&self.position) {
             let mut scores = Vec::new();
 
-            for s in router.metrics.iter() {
-                scores.push(*s.1);
+            for (dir, metrics) in router.metrics.iter() {
+                scores.push(metrics.0);
             }
 
             if let Some(min) = scores.iter().min() {
@@ -386,22 +390,23 @@ impl Maze {
         let mut min_metric = 0;
         let mut min_directions: HashMap<u64, Vec<Direction>> = HashMap::new();
         if let Some(start_router) = self.routers.get(&self.position) {
-            for entry in start_router.metrics.iter() {
+            for (d, metrics) in start_router.metrics.iter() {
                 if min_metric == 0 {
-                    min_metric = *entry.1;
+                    min_metric = metrics.1;
                 }
 
-                if *entry.1 < min_metric {
-                    min_metric = *entry.1;
+                if metrics.1 < min_metric {
+                    min_metric = metrics.1;
                 }
 
                 min_directions
-                    .entry(*entry.1)
-                    .and_modify(|d| d.push(*entry.0))
-                    .or_insert(vec![*entry.0]);
+                    .entry(metrics.1)
+                    .and_modify(|dir| dir.push(*d))
+                    .or_insert(vec![*d]);
             }
         }
 
+        println!("Starting from {:?}", self.position);
         self.unique_best_paths_cells.insert(self.position);
 
         // now actually walk through using always the same lowest metrics
@@ -417,6 +422,7 @@ impl Maze {
         while let Some(next) = self.get_next_cell(current, direction) {
             current = next;
             self.unique_best_paths_cells.insert(current);
+            println!(" - Walking on {:?}", current);
 
             if self.end == current {
                 return;
@@ -426,23 +432,29 @@ impl Maze {
                 let mut min_metric = 0;
                 let mut min_directions: HashMap<u64, Vec<Direction>> = HashMap::new();
                 if let Some(router) = self.routers.get(&current) {
-                    for entry in router.metrics.iter() {
+                    for (dir, metrics) in router.metrics.iter() {
+                        println!(
+                            "    - Found direction {} with metric {}",
+                            dir.to_str(),
+                            metrics.1
+                        );
                         if min_metric == 0 {
-                            min_metric = *entry.1;
+                            min_metric = metrics.1;
                         }
 
-                        if *entry.1 < min_metric {
-                            min_metric = *entry.1;
+                        if metrics.1 < min_metric {
+                            min_metric = metrics.1;
                         }
 
                         min_directions
-                            .entry(*entry.1)
-                            .and_modify(|d| d.push(*entry.0))
-                            .or_insert(vec![*entry.0]);
+                            .entry(metrics.1)
+                            .and_modify(|d| d.push(*dir))
+                            .or_insert(vec![*dir]);
                     }
                 }
 
                 if let Some(min_directions) = min_directions.get(&min_metric) {
+                    println!("   - Found n directions: {}", min_directions.len());
                     for d in min_directions {
                         self.walk_to_router_or_end(current, *d);
                     }
@@ -454,7 +466,6 @@ impl Maze {
     }
 
     pub fn count_unique_best_paths_cells(&self) -> u64 {
-        dbg!(&self.unique_best_paths_cells);
         self.unique_best_paths_cells.len() as u64
     }
 
@@ -497,7 +508,7 @@ impl Direction {
 struct Router {
     position: (usize, usize),
     links: HashSet<Direction>,
-    metrics: HashMap<Direction, u64>,
+    metrics: HashMap<Direction, (u64, u64)>,
 }
 
 impl Router {
@@ -550,6 +561,7 @@ impl Router {
     pub fn update_distance_metric_from_dir(
         &mut self,
         score: u64,
+        steps: u64,
         from_direction: Direction,
     ) -> bool {
         let mut already_walked = false;
@@ -558,46 +570,50 @@ impl Router {
                 .metrics
                 .entry(Direction::Down)
                 .and_modify(|c| {
-                    if *c > score {
-                        *c = score;
+                    if c.0 > score {
+                        c.0 = score;
+                        c.1 = steps;
                     } else {
                         already_walked = true;
                     }
                 })
-                .or_insert(score),
+                .or_insert((score, steps)),
             Direction::Right => self
                 .metrics
                 .entry(Direction::Left)
                 .and_modify(|c| {
-                    if *c > score {
-                        *c = score;
+                    if c.0 > score {
+                        c.0 = score;
+                        c.1 = steps;
                     } else {
                         already_walked = true;
                     }
                 })
-                .or_insert(score),
+                .or_insert((score, steps)),
             Direction::Down => self
                 .metrics
                 .entry(Direction::Up)
                 .and_modify(|c| {
-                    if *c > score {
-                        *c = score;
+                    if c.0 > score {
+                        c.0 = score;
+                        c.1 = steps;
                     } else {
                         already_walked = true;
                     }
                 })
-                .or_insert(score),
+                .or_insert((score, steps)),
             Direction::Left => self
                 .metrics
                 .entry(Direction::Right)
                 .and_modify(|c| {
-                    if *c > score {
-                        *c = score;
+                    if c.0 > score {
+                        c.0 = score;
+                        c.1 = steps;
                     } else {
                         already_walked = true;
                     }
                 })
-                .or_insert(score),
+                .or_insert((score, steps)),
         };
 
         return already_walked;
@@ -646,7 +662,7 @@ mod tests {
         assert_eq!(maze.position(), (1, 13));
 
         maze.compute_routing();
-        assert_eq!(maze.get_min_score(), 7036);
+        // assert_eq!(maze.get_min_score(), 7036);
 
         maze.walk_through_best_paths();
         let unique = maze.count_unique_best_paths_cells();

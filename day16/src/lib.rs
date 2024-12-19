@@ -620,14 +620,15 @@ impl Router {
     }
 }
 
-pub fn run(config: Config) -> Result<u64, Box<dyn Error>> {
+pub fn run(config: Config) -> Result<(u64, u64), Box<dyn Error>> {
     let raw_content = fs::read_to_string(config.puzzle_input)?;
     let mut maze = Maze::make(&raw_content).unwrap();
 
     maze.compute_routing();
     let score = maze.get_min_score();
+    let unique = maze.count_unique_best_paths_cells();
 
-    Ok(score)
+    Ok((score, unique))
 }
 
 #[cfg(test)]

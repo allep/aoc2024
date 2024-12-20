@@ -29,9 +29,6 @@ struct Maze {
     end: (usize, usize),
     routers: HashMap<(usize, usize), Router>,
     dead_ends: Vec<(usize, usize)>,
-
-    start_walked: u64,
-    stop: bool,
 }
 
 impl Maze {
@@ -88,8 +85,6 @@ impl Maze {
                     end,
                     routers: HashMap::new(),
                     dead_ends: Vec::new(),
-                    start_walked: 0,
-                    stop: false,
                 });
             }
             _ => (),
@@ -114,7 +109,7 @@ impl Maze {
 
         let ttl: u64 = (self.rows as u64) * (self.columns as u64);
         println!("TTL is {ttl}");
-        self.compute_routing_metrics_from_position(self.end, 0, None, ttl, Vec::new());
+        self.compute_routing_metrics_from_position(self.end, 0, None, ttl, vec![self.end]);
     }
 
     fn compute_routing_metrics_from_position(
@@ -181,6 +176,7 @@ impl Maze {
 
             let mut current = position;
             let mut ttl = ttl;
+            let mut cur_dir_path = path.clone();
             while let Some(next) = self.get_next_cell(current, *d) {
                 if ttl <= 1 {
                     break;
@@ -190,8 +186,7 @@ impl Maze {
                 cur_dir_score += 1;
                 ttl -= 1;
 
-                let mut path = path.clone();
-                path.push(current);
+                cur_dir_path.push(current);
 
                 if self.is_router_cell(current) {
                     let already_walked = match self.routers.get_mut(&current) {
@@ -204,7 +199,23 @@ impl Maze {
                                     _ => (),
                                 }
                             };
-                            router.update_distance_metric_from_dir(cur_dir_score, *d, path.clone())
+
+                            if current == self.position && cur_dir_score == 7036 {
+                                println!("Setting path with len = {}", cur_dir_path.len());
+                                for p in cur_dir_path.iter() {
+                                    println!(
+                                        "Setting path entry to start position: ({}, {})",
+                                        p.0, p.1
+                                    );
+                                }
+                                println!("End setting path");
+                            }
+
+                            router.update_distance_metric_from_dir(
+                                cur_dir_score,
+                                *d,
+                                cur_dir_path.clone(),
+                            )
                         }
                         _ => false,
                     };
@@ -220,7 +231,7 @@ impl Maze {
                             cur_dir_score,
                             Some(*d),
                             ttl,
-                            path.clone(),
+                            cur_dir_path.clone(),
                         );
                     }
                 }
@@ -387,10 +398,12 @@ impl Maze {
             let mut scores = Vec::new();
 
             for (dir, (score, cells)) in router.metrics.iter() {
+                println!("Found metrics at start: {}", *score);
                 scores.push(*score);
             }
 
             if let Some(min_score) = scores.iter().min() {
+                println!("Found min score at start: {}", *min_score);
                 let mut unique_cells = HashSet::new();
                 for (dir, (score, cells)) in router.metrics.iter() {
                     if *score == *min_score {
@@ -450,7 +463,7 @@ impl Direction {
 struct Router {
     position: (usize, usize),
     links: HashSet<Direction>,
-    metrics: HashMap<Direction, (u64, Vec<(usize, usize)>)>,
+    metrics: HashMap<Direction, (u64, HashSet<(usize, usize)>)>,
 }
 
 impl Router {
@@ -512,46 +525,98 @@ impl Router {
                 .metrics
                 .entry(Direction::Down)
                 .and_modify(|(cur_score, cells)| {
-                    if *cur_score > score {
+                    if *cur_score >= score {
+                        if score < *cur_score {
+                            cells.clear();
+                        }
+
                         *cur_score = score;
+                        path.iter().for_each(|p| {
+                            cells.insert(*p);
+                        });
                     } else {
                         already_walked = true;
                     }
                 })
-                .or_insert((score, path)),
+                .or_insert({
+                    let mut set = HashSet::new();
+                    for p in path.iter() {
+                        set.insert(*p);
+                    }
+                    (score, set)
+                }),
             Direction::Right => self
                 .metrics
                 .entry(Direction::Left)
                 .and_modify(|(cur_score, cells)| {
-                    if *cur_score > score {
+                    if *cur_score >= score {
+                        if score < *cur_score {
+                            cells.clear();
+                        }
+
                         *cur_score = score;
+                        path.iter().for_each(|p| {
+                            cells.insert(*p);
+                        });
                     } else {
                         already_walked = true;
                     }
                 })
-                .or_insert((score, path)),
+                .or_insert({
+                    let mut set = HashSet::new();
+                    for p in path.iter() {
+                        set.insert(*p);
+                    }
+                    (score, set)
+                }),
             Direction::Down => self
                 .metrics
                 .entry(Direction::Up)
                 .and_modify(|(cur_score, cells)| {
-                    if *cur_score > score {
+                    if *cur_score >= score {
+                        if score < *cur_score {
+                            cells.clear();
+                        }
+
                         *cur_score = score;
+                        path.iter().for_each(|p| {
+                            cells.insert(*p);
+                        });
                     } else {
                         already_walked = true;
                     }
                 })
-                .or_insert((score, path)),
+                .or_insert({
+                    let mut set = HashSet::new();
+                    for p in path.iter() {
+                        set.insert(*p);
+                    }
+                    (score, set)
+                }),
             Direction::Left => self
                 .metrics
                 .entry(Direction::Right)
                 .and_modify(|(cur_score, cells)| {
-                    if *cur_score > score {
+                    if *cur_score >= score {
+                        if score < *cur_score {
+                            cells.clear();
+                        }
+
                         *cur_score = score;
+                        path.iter().for_each(|p| {
+                            cells.insert(*p);
+                        });
                     } else {
                         already_walked = true;
                     }
                 })
-                .or_insert((score, path)),
+                .or_insert({
+                    let mut set = HashSet::new();
+                    for p in path.iter() {
+                        set.insert(*p);
+                    }
+                    (score, set)
+                }),
         };
 
         return already_walked;

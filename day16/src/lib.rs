@@ -382,6 +382,35 @@ impl Maze {
         0
     }
 
+    pub fn get_num_cells(&self) -> u64 {
+        if let Some(router) = self.routers.get(&self.position) {
+            let mut scores = Vec::new();
+
+            for (dir, (score, cells)) in router.metrics.iter() {
+                scores.push(*score);
+            }
+
+            if let Some(min_score) = scores.iter().min() {
+                let mut unique_cells = HashSet::new();
+                for (dir, (score, cells)) in router.metrics.iter() {
+                    if *score == *min_score {
+                        for c in cells {
+                            unique_cells.insert(c);
+                        }
+                    }
+                }
+
+                unique_cells
+                    .iter()
+                    .for_each(|e| println!("Unique cell: ({}, {})", e.0, e.1));
+
+                return unique_cells.len() as u64;
+            }
+        }
+
+        0
+    }
+
     pub fn rows(&self) -> usize {
         self.rows
     }
@@ -572,5 +601,6 @@ mod tests {
 
         maze.compute_routing();
         assert_eq!(maze.get_min_score(), 7036);
+        assert_eq!(maze.get_num_cells(), 45);
     }
 }

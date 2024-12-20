@@ -21,6 +21,12 @@ impl Config {
     }
 }
 
+#[derive(Eq, PartialEq, Clone, Hash)]
+struct PathCell {
+    position: (usize, usize),
+    direction: Direction,
+}
+
 struct Maze {
     cells: Vec<Vec<char>>,
     rows: usize,
@@ -107,9 +113,10 @@ impl Maze {
             }
         }
 
-        let ttl: u64 = (self.rows as u64) * (self.columns as u64);
+        // let ttl: u64 = (self.rows as u64) * (self.columns as u64);
+        let ttl: u64 = 6000;
         println!("TTL is {ttl}");
-        self.compute_routing_metrics_from_position(self.end, 0, None, ttl, vec![self.end]);
+        self.compute_routing_metrics_from_position(self.end, 0, None, ttl, HashSet::new());
     }
 
     fn compute_routing_metrics_from_position(
@@ -118,7 +125,7 @@ impl Maze {
         current_score: u64,
         from_direction: Option<Direction>,
         ttl: u64,
-        path: Vec<(usize, usize)>,
+        path: HashSet<PathCell>,
     ) {
         if ttl <= 1 {
             return;
@@ -137,13 +144,28 @@ impl Maze {
             return;
         }
 
+        if let Some(dir) = from_direction {
+            if path.contains(&PathCell {
+                position,
+                direction: dir,
+            }) {
+                println!(
+                    "Already walked here ({}, {}) dir = {}!",
+                    position.0,
+                    position.1,
+                    dir.to_str()
+                );
+                return;
+            }
+        }
+
         // basic checks: is end or start?
         if position == self.position {
             match from_direction {
                 Some(direction) => {
                     println!(
-                        "Found starting position with score = {current_score} from direction {}",
-                        direction.to_str()
+                        "Found starting position with score = {current_score} from direction {} with path len = {}",
+                        direction.to_str(), path.len()
                     );
                 }
                 None => {
@@ -186,7 +208,10 @@ impl Maze {
                 cur_dir_score += 1;
                 ttl -= 1;
 
-                cur_dir_path.push(current);
+                cur_dir_path.insert(PathCell {
+                    position: current,
+                    direction: *d,
+                });
 
                 if self.is_router_cell(current) {
                     let already_walked = match self.routers.get_mut(&current) {
@@ -199,17 +224,6 @@ impl Maze {
                                     _ => (),
                                 }
                             };
-
-                            if current == self.position && cur_dir_score == 7036 {
-                                println!("Setting path with len = {}", cur_dir_path.len());
-                                for p in cur_dir_path.iter() {
-                                    println!(
-                                        "Setting path entry to start position: ({}, {})",
-                                        p.0, p.1
-                                    );
-                                }
-                                println!("End setting path");
-                            }
 
                             router.update_distance_metric_from_dir(
                                 cur_dir_score,
@@ -231,9 +245,10 @@ impl Maze {
                             cur_dir_score,
                             Some(*d),
                             ttl,
-                            cur_dir_path.clone(),
+                            cur_dir_path,
                         );
                     }
+                    break;
                 }
             }
         }
@@ -517,7 +532,7 @@ impl Router {
         &mut self,
         score: u64,
         from_direction: Direction,
-        path: Vec<(usize, usize)>,
+        path: HashSet<PathCell>,
     ) -> bool {
         let mut already_walked = false;
         match from_direction {
@@ -532,7 +547,7 @@ impl Router {
 
                         *cur_score = score;
                         path.iter().for_each(|p| {
-                            cells.insert(*p);
+                            cells.insert(p.position);
                         });
                     } else {
                         already_walked = true;
@@ -541,7 +556,7 @@ impl Router {
                 .or_insert({
                     let mut set = HashSet::new();
                     for p in path.iter() {
-                        set.insert(*p);
+                        set.insert(p.position);
                     }
                     (score, set)
                 }),
@@ -556,7 +571,7 @@ impl Router {
 
                         *cur_score = score;
                         path.iter().for_each(|p| {
-                            cells.insert(*p);
+                            cells.insert(p.position);
                         });
                     } else {
                         already_walked = true;
@@ -565,7 +580,7 @@ impl Router {
                 .or_insert({
                     let mut set = HashSet::new();
                     for p in path.iter() {
-                        set.insert(*p);
+                        set.insert(p.position);
                     }
                     (score, set)
                 }),
@@ -580,7 +595,7 @@ impl Router {
 
                         *cur_score = score;
                         path.iter().for_each(|p| {
-                            cells.insert(*p);
+                            cells.insert(p.position);
                         });
                     } else {
                         already_walked = true;
@@ -589,7 +604,7 @@ impl Router {
                 .or_insert({
                     let mut set = HashSet::new();
                     for p in path.iter() {
-                        set.insert(*p);
+                        set.insert(p.position);
                     }
                     (score, set)
                 }),
@@ -604,7 +619,7 @@ impl Router {
 
                         *cur_score = score;
                         path.iter().for_each(|p| {
-                            cells.insert(*p);
+                            cells.insert(p.position);
                         });
                     } else {
                         already_walked = true;
@@ -613,7 +628,7 @@ impl Router {
                 .or_insert({
                     let mut set = HashSet::new();
                     for p in path.iter() {
-                        set.insert(*p);
+                        set.insert(p.position);
                     }
                     (score, set)
                 }),
@@ -623,14 +638,15 @@ impl Router {
     }
 }
 
-pub fn run(config: Config) -> Result<u64, Box<dyn Error>> {
+pub fn run(config: Config) -> Result<(u64, u64), Box<dyn Error>> {
     let raw_content = fs::read_to_string(config.puzzle_input)?;
     let mut maze = Maze::make(&raw_content).unwrap();
 
     maze.compute_routing();
     let score = maze.get_min_score();
+    let min_cells = maze.get_num_cells();
 
-    Ok(score)
+    Ok((score, min_cells))
 }
 
 #[cfg(test)]

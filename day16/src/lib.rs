@@ -113,10 +113,13 @@ impl Maze {
             }
         }
 
-        // let ttl: u64 = (self.rows as u64) * (self.columns as u64);
-        let ttl: u64 = 6000;
+        let ttl: u64 = (self.rows as u64) * (self.columns as u64);
         println!("TTL is {ttl}");
-        self.compute_routing_metrics_from_position(self.end, 0, None, ttl, HashSet::new());
+        let path = HashSet::from([PathCell {
+            position: self.end,
+            direction: Direction::Down,
+        }]);
+        self.compute_routing_metrics_from_position(self.end, 0, None, ttl, path);
     }
 
     fn compute_routing_metrics_from_position(
@@ -142,21 +145,6 @@ impl Maze {
                 position.0, position.1
             );
             return;
-        }
-
-        if let Some(dir) = from_direction {
-            if path.contains(&PathCell {
-                position,
-                direction: dir,
-            }) {
-                println!(
-                    "Already walked here ({}, {}) dir = {}!",
-                    position.0,
-                    position.1,
-                    dir.to_str()
-                );
-                return;
-            }
         }
 
         // basic checks: is end or start?
@@ -208,46 +196,49 @@ impl Maze {
                 cur_dir_score += 1;
                 ttl -= 1;
 
-                cur_dir_path.insert(PathCell {
+                if !path.contains(&PathCell {
                     position: current,
                     direction: *d,
-                });
+                }) {
+                    cur_dir_path.insert(PathCell {
+                        position: current,
+                        direction: *d,
+                    });
 
-                if self.is_router_cell(current) {
-                    let already_walked = match self.routers.get_mut(&current) {
-                        Some(router) => {
-                            if current == self.position {
-                                match d {
-                                    Direction::Up => cur_dir_score += 1000,
-                                    Direction::Down => cur_dir_score += 1000,
-                                    Direction::Right => cur_dir_score += 2000,
-                                    _ => (),
-                                }
-                            };
+                    if self.is_router_cell(current) {
+                        let mut is_start = false;
+                        match self.routers.get_mut(&current) {
+                            Some(router) => {
+                                if current == self.position {
+                                    is_start = true;
+                                    match d {
+                                        Direction::Up => cur_dir_score += 1000,
+                                        Direction::Down => cur_dir_score += 1000,
+                                        Direction::Right => cur_dir_score += 2000,
+                                        _ => (),
+                                    }
+                                    router.update_distance_metric_from_dir(
+                                        cur_dir_score,
+                                        *d,
+                                        cur_dir_path.clone(),
+                                    );
+                                };
+                            }
+                            _ => (),
+                        };
 
-                            router.update_distance_metric_from_dir(
+                        if !is_start {
+                            self.compute_routing_metrics_from_position(
+                                current,
                                 cur_dir_score,
-                                *d,
-                                cur_dir_path.clone(),
-                            )
+                                Some(*d),
+                                ttl,
+                                cur_dir_path,
+                            );
                         }
-                        _ => false,
-                    };
-
-                    if !already_walked {
-                        // TODO: not sure if this will have the right values at the end of the day
-                        // println!(
-                        // "Updating {cur_dir_score} on router in {current:?} from {position:?}"
-                        // );
-
-                        self.compute_routing_metrics_from_position(
-                            current,
-                            cur_dir_score,
-                            Some(*d),
-                            ttl,
-                            cur_dir_path,
-                        );
+                        break;
                     }
+                } else {
                     break;
                 }
             }
@@ -533,8 +524,7 @@ impl Router {
         score: u64,
         from_direction: Direction,
         path: HashSet<PathCell>,
-    ) -> bool {
-        let mut already_walked = false;
+    ) {
         match from_direction {
             Direction::Up => self
                 .metrics
@@ -549,8 +539,6 @@ impl Router {
                         path.iter().for_each(|p| {
                             cells.insert(p.position);
                         });
-                    } else {
-                        already_walked = true;
                     }
                 })
                 .or_insert({
@@ -573,8 +561,6 @@ impl Router {
                         path.iter().for_each(|p| {
                             cells.insert(p.position);
                         });
-                    } else {
-                        already_walked = true;
                     }
                 })
                 .or_insert({
@@ -597,8 +583,6 @@ impl Router {
                         path.iter().for_each(|p| {
                             cells.insert(p.position);
                         });
-                    } else {
-                        already_walked = true;
                     }
                 })
                 .or_insert({
@@ -621,8 +605,6 @@ impl Router {
                         path.iter().for_each(|p| {
                             cells.insert(p.position);
                         });
-                    } else {
-                        already_walked = true;
                     }
                 })
                 .or_insert({
@@ -633,8 +615,6 @@ impl Router {
                     (score, set)
                 }),
         };
-
-        return already_walked;
     }
 }
 

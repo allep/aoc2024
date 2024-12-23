@@ -1,8 +1,8 @@
 use csv::Reader;
 use serde::de::DeserializeOwned;
-use std::cmp;
 use std::error::Error;
 use std::io::{self, Read};
+use std::{cmp, fs};
 
 #[derive(Debug)]
 pub struct Config {
@@ -84,6 +84,7 @@ struct MemoryArea {
 
     corrupted: Vec<(usize, usize)>,
     paths: Vec<Path>,
+    walked_cells: u64,
 }
 
 impl MemoryArea {
@@ -106,6 +107,7 @@ impl MemoryArea {
 
                 corrupted: Vec::new(),
                 paths: Vec::new(),
+                walked_cells: 0,
             });
         }
 
@@ -130,8 +132,12 @@ impl MemoryArea {
     }
 
     fn walk(&mut self, cell: (usize, usize), mut path: Path) {
+        self.walked_cells += 1;
         path.append(cell).unwrap();
-        // self.log_position_and_path(&cell, &path);
+        if self.walked_cells % 1000000 == 0 {
+            println!("Walked 1M cells");
+            self.log_position_and_path(&cell, &path);
+        }
 
         if cell == self.end {
             self.append_start_end_path(path);
@@ -234,9 +240,19 @@ impl MemoryArea {
     }
 }
 
-pub fn run(config: Config) -> Result<(u64), Box<dyn Error>> {
-    // TODO
-    Ok((0))
+pub fn run(config: Config) -> Result<(usize), Box<dyn Error>> {
+    let raw_data = fs::read_to_string(config.puzzle_input)?;
+    let size = (71, 71);
+    let corrupted: Vec<CorruptedCell> = build_corrupted_cells(raw_data.as_bytes(), &size).unwrap();
+    let corrupted: Vec<(usize, usize)> = corrupted.iter().map(|c| (c.x, c.y)).collect();
+
+    let start = (0, 0);
+    let end = (70, 70);
+    let mut memory_area = MemoryArea::new(&size, start, end).unwrap();
+    memory_area.set_corrupted(&corrupted[0..1024]);
+    memory_area.compute_paths();
+    let min = memory_area.min_path_len();
+    Ok((min))
 }
 
 // Note on printing during tests:

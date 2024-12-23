@@ -1,5 +1,6 @@
 use csv::Reader;
 use serde::de::DeserializeOwned;
+use std::cmp;
 use std::error::Error;
 use std::io::{self, Read};
 
@@ -41,15 +42,44 @@ where
     Ok(structs)
 }
 
-struct MemoryArea {}
+struct MemoryArea {
+    max_x: usize,
+    max_y: usize,
+    start: (usize, usize),
+    end: (usize, usize),
+
+    corrupted: Vec<(usize, usize)>,
+}
 
 impl MemoryArea {
-    fn new(size: &(usize, usize)) -> Result<MemoryArea, &'static str> {
-        todo!();
+    fn new(
+        size: &(usize, usize),
+        start: (usize, usize),
+        end: (usize, usize),
+    ) -> Result<MemoryArea, &'static str> {
+        let max_x = cmp::max(start.0, end.0);
+        let max_y = cmp::max(start.1, end.1);
+
+        if size.0 > max_x && size.1 > max_y {
+            return Ok(MemoryArea {
+                max_x,
+                max_y,
+                start,
+                end,
+
+                corrupted: Vec::new(),
+            });
+        }
+
+        Err("Invalid start, end or size")
     }
 
-    fn update_corrupted(&mut self, corrupted_positions: Vec<(usize, usize)>) {
-        todo!();
+    fn set_corrupted(&mut self, corrupted_positions: Vec<(usize, usize)>) {
+        self.corrupted = corrupted_positions;
+    }
+
+    fn update_corrupted(&mut self, mut corrupted_positions: Vec<(usize, usize)>) {
+        self.corrupted.append(&mut corrupted_positions);
     }
 
     fn compute_shortest_path(&self) {
@@ -79,6 +109,7 @@ mod tests {
     #[test]
     fn sample_input_path_length_compute_test() {
         let raw_data = "\
+x,y
 5,4
 4,2
 4,5
@@ -104,12 +135,17 @@ mod tests {
 0,5
 1,6
 2,0";
-        let size = (6, 6);
+        let size = (7, 7);
+
         let corrupted: Vec<CorruptedCell> =
             build_corrupted_cells(raw_data.as_bytes(), &size).unwrap();
-        let corrupted = corrupted.iter().map(|c| (c.x, c.y)).collect();
+        let corrupted: Vec<(usize, usize)> = corrupted.iter().map(|c| (c.x, c.y)).collect();
+        assert_eq!(corrupted.len(), 25);
 
-        let mut memory_area = MemoryArea::new(&size).unwrap();
+        let start = (0, 0);
+        let end = (6, 6);
+        let mut memory_area = MemoryArea::new(&size, start, end).unwrap();
+
         memory_area.update_corrupted(corrupted);
         memory_area.compute_shortest_path();
 

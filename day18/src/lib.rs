@@ -1,4 +1,7 @@
+use csv::Reader;
+use serde::de::DeserializeOwned;
 use std::error::Error;
+use std::io::{self, Read};
 
 #[derive(Debug)]
 pub struct Config {
@@ -17,12 +20,25 @@ impl Config {
     }
 }
 
-struct CorruptedCells {}
+#[derive(Debug, serde::Deserialize)]
+struct CorruptedCell {
+    x: usize,
+    y: usize,
+}
 
-impl CorruptedCells {
-    fn new(raw_data: &str, size: &(usize, usize)) -> Result<Vec<(usize, usize)>, &'static str> {
-        todo!();
+fn build_corrupted_cells<T, R>(reader: R, size: &(usize, usize)) -> Result<Vec<T>, Box<dyn Error>>
+where
+    T: std::fmt::Debug + DeserializeOwned,
+    R: Read,
+{
+    let mut rdr = Reader::from_reader(reader);
+    let mut structs: Vec<T> = Vec::new();
+    for result in rdr.deserialize() {
+        let record: T = result?;
+        structs.push(record);
     }
+
+    Ok(structs)
 }
 
 struct MemoryArea {}
@@ -89,9 +105,11 @@ mod tests {
 1,6
 2,0";
         let size = (6, 6);
-        let corrupted = CorruptedCells::new(raw_data, &size)?;
+        let corrupted: Vec<CorruptedCell> =
+            build_corrupted_cells(raw_data.as_bytes(), &size).unwrap();
+        let corrupted = corrupted.iter().map(|c| (c.x, c.y)).collect();
 
-        let memory_area = MemoryArea::new(&size)?;
+        let mut memory_area = MemoryArea::new(&size).unwrap();
         memory_area.update_corrupted(corrupted);
         memory_area.compute_shortest_path();
 

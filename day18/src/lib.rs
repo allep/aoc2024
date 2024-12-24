@@ -1,23 +1,31 @@
 use csv::Reader;
 use serde::de::DeserializeOwned;
+use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::error::Error;
 use std::io::{self, Read};
+use std::rc::Rc;
 use std::{cmp, fs};
 
 #[derive(Debug)]
 pub struct Config {
     puzzle_input: String,
+    max_length: usize,
 }
 
 impl Config {
-    pub fn build(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 2 {
-            return Err("Not enough arguments");
+    pub fn build(args: &[String]) -> Result<Config, Box<dyn Error>> {
+        if args.len() < 3 {
+            return Err(String::from("Not enough arguments").into());
         }
 
         let puzzle_input = args[1].clone();
+        let max_length = args[2].parse::<usize>()?;
 
-        Ok(Config { puzzle_input })
+        Ok(Config {
+            puzzle_input,
+            max_length,
+        })
     }
 }
 
@@ -40,6 +48,16 @@ where
     }
 
     Ok(structs)
+}
+
+enum BFSCell {
+    Child {
+        position: (usize, usize),
+        parent: Rc<BFSCell>,
+    },
+    Root {
+        position: (usize, usize),
+    },
 }
 
 #[derive(Clone)]
@@ -81,6 +99,7 @@ struct MemoryArea {
     max_y: usize,
     start: (usize, usize),
     end: (usize, usize),
+    max_length: usize,
 
     corrupted: Vec<(usize, usize)>,
     paths: Vec<Path>,
@@ -92,6 +111,7 @@ impl MemoryArea {
         size: &(usize, usize),
         start: (usize, usize),
         end: (usize, usize),
+        max_length: usize,
     ) -> Result<MemoryArea, &'static str> {
         let max_x = cmp::max(start.0, end.0);
         let max_y = cmp::max(start.1, end.1);
@@ -104,6 +124,7 @@ impl MemoryArea {
                 max_y,
                 start,
                 end,
+                max_length,
 
                 corrupted: Vec::new(),
                 paths: Vec::new(),
@@ -131,9 +152,53 @@ impl MemoryArea {
         self.walk(self.start, Path::new(size).unwrap());
     }
 
+    fn breadth_first_search(&mut self, root_position: (usize, usize), mut path: Path) {
+        let mut queue: VecDeque<Rc<BFSCell>> = VecDeque::new();
+        let mut explored = HashSet::new();
+
+        let root = Rc::new(BFSCell::Root {
+            position: root_position,
+        });
+        queue.push_back(root);
+        explored.insert(root_position);
+
+        while let Some(current) = queue.pop_front() {
+            if self.is_goal_reached(Rc::clone(&current), &path) {
+                // found either exit or max length
+                // TODO
+            }
+
+            let next_cells = match *current {
+                BFSCell::Child { position, .. } | BFSCell::Root { position } => {
+                    // TODO: need to manage path here, since it has to be extracted from BFSCell
+                    self.get_next_cells(position, &path)
+                }
+            };
+
+            for c in next_cells.iter() {
+                if !explored.contains(c) {
+                    explored.insert(*c);
+                    let to_explore = Rc::new(BFSCell::Child {
+                        position: *c,
+                        parent: Rc::clone(&current),
+                    });
+                    queue.push_back(to_explore);
+                }
+            }
+        }
+    }
+
+    fn is_goal_reached(&self, cell: Rc<BFSCell>, path: &Path) -> bool {
+        let is_end = match *cell {
+            BFSCell::Child { position, .. } | BFSCell::Root { position } => position == self.end,
+        };
+        is_end || self.is_path_too_long(path)
+    }
+
     fn walk(&mut self, cell: (usize, usize), mut path: Path) {
         self.walked_cells += 1;
         path.append(cell).unwrap();
+
         if self.walked_cells % 1000000 == 0 {
             println!("Walked 1M cells");
             self.log_position_and_path(&cell, &path);
@@ -144,10 +209,18 @@ impl MemoryArea {
             return;
         }
 
+        if self.is_path_too_long(&path) {
+            return;
+        }
+
         let next_cells = self.get_next_cells(cell, &path);
         for c in next_cells.iter() {
             self.walk(*c, path.clone());
         }
+    }
+
+    fn is_path_too_long(&self, path: &Path) -> bool {
+        path.len() >= self.max_length
     }
 
     fn append_start_end_path(&mut self, path: Path) {
@@ -216,20 +289,19 @@ impl MemoryArea {
         next_cells
     }
 
-    fn get_non_walked_cells(
-        &self,
-        mut cells: Vec<(usize, usize)>,
-        path: &Path,
-    ) -> Vec<(usize, usize)> {
+    fn get_non_walked_cells(&self, cells: Vec<(usize, usize)>, path: &Path) -> Vec<(usize, usize)> {
         cells
             .into_iter()
             .filter(|&nc| !path.is_cell_in_path(nc))
             .collect()
     }
 
-    pub fn min_path_len(&self) -> usize {
-        let min_num_cells = self.paths.iter().map(|p| p.len()).min().unwrap();
-        min_num_cells - 1
+    pub fn min_path_len(&self) -> Result<usize, &'static str> {
+        if !self.paths.is_empty() {
+            let min_num_cells = self.paths.iter().map(|p| p.len()).min().unwrap();
+            return Ok(min_num_cells - 1);
+        }
+        Err("No path found")
     }
 
     fn get_non_corrupted_cells(&self, cells: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
@@ -248,10 +320,10 @@ pub fn run(config: Config) -> Result<(usize), Box<dyn Error>> {
 
     let start = (0, 0);
     let end = (70, 70);
-    let mut memory_area = MemoryArea::new(&size, start, end).unwrap();
+    let mut memory_area = MemoryArea::new(&size, start, end, config.max_length).unwrap();
     memory_area.set_corrupted(&corrupted[0..1024]);
     memory_area.compute_paths();
-    let min = memory_area.min_path_len();
+    let min = memory_area.min_path_len().unwrap();
     Ok((min))
 }
 
@@ -303,7 +375,7 @@ x,y
 
         let start = (0, 0);
         let end = (6, 6);
-        let mut memory_area = MemoryArea::new(&size, start, end).unwrap();
+        let mut memory_area = MemoryArea::new(&size, start, end, 23).unwrap();
 
         assert_eq!(memory_area.num_corrupted(), 0);
         memory_area.set_corrupted(&corrupted[0..12]);
@@ -311,6 +383,6 @@ x,y
 
         memory_area.compute_paths();
 
-        assert_eq!(memory_area.min_path_len(), 22);
+        assert_eq!(memory_area.min_path_len().unwrap(), 22);
     }
 }

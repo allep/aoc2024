@@ -215,6 +215,7 @@ struct MemoryArea {
     paths: Vec<Path>,
     walked_cells: u64,
     min_steps_bfs: usize,
+    goal_found: bool,
 }
 
 impl MemoryArea {
@@ -241,6 +242,7 @@ impl MemoryArea {
                 paths: Vec::new(),
                 walked_cells: 0,
                 min_steps_bfs: 0,
+                goal_found: false,
             });
         }
 
@@ -280,11 +282,14 @@ impl MemoryArea {
         let mut explored = HashSet::new();
         explored.insert(root_position);
 
+        self.goal_found = false;
         while let Some(current) = queue.pop_front() {
             if self.is_goal_reached(&current) {
                 let end_pos = current.get_position();
                 let steps = Self::compute_min_steps_bfs(&current);
                 self.min_steps_bfs = steps;
+                self.goal_found = true;
+
                 println!(
                     "Goal reached on position ({}, {}), with steps = {}",
                     end_pos.0, end_pos.1, steps
@@ -306,6 +311,10 @@ impl MemoryArea {
                 }
             }
         }
+    }
+
+    fn goal_found(&self) -> bool {
+        self.goal_found
     }
 
     fn is_goal_reached(&self, cell: &Rc<BFSCell>) -> bool {
@@ -599,5 +608,63 @@ x,y
         memory_area.compute_paths_bfs();
 
         assert_eq!(memory_area.min_steps_bfs().unwrap(), 22);
+    }
+    #[test]
+    fn sample_input_part2_bfs_test() {
+        let raw_data = "\
+x,y
+5,4
+4,2
+4,5
+3,0
+2,1
+6,3
+2,4
+1,5
+0,6
+3,3
+2,6
+5,1
+1,2
+5,5
+2,5
+6,5
+1,4
+0,4
+6,4
+1,1
+6,1
+1,0
+0,5
+1,6
+2,0";
+
+        let expected_goal_found: [bool; 25] = [
+            true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+            true, true, true, true, true, true, false, false, false, false, false,
+        ];
+
+        let size = (7, 7);
+
+        let corrupted: Vec<CorruptedCell> =
+            build_corrupted_cells(raw_data.as_bytes(), &size).unwrap();
+        let corrupted: Vec<(usize, usize)> = corrupted.iter().map(|c| (c.x, c.y)).collect();
+        assert_eq!(corrupted.len(), 25);
+
+        for ix in 0..corrupted.len() {
+            let start = (0, 0);
+            let end = (6, 6);
+            let mut memory_area = MemoryArea::new(&size, start, end, 23).unwrap();
+            let num_corrupted = ix + 1;
+            memory_area.set_corrupted(&corrupted[0..num_corrupted]);
+            assert_eq!(memory_area.num_corrupted(), num_corrupted);
+            memory_area.compute_paths_bfs();
+            assert_eq!(
+                memory_area.goal_found(),
+                expected_goal_found[ix],
+                "Expected goal for index {} comparison failed",
+                ix
+            );
+        }
     }
 }

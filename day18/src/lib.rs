@@ -50,14 +50,124 @@ where
     Ok(structs)
 }
 
-enum BFSCell {
+enum BFSCell<'a> {
     Child {
         position: (usize, usize),
-        parent: Rc<BFSCell>,
+        parent: Rc<BFSCell<'a>>,
+        map_size: (usize, usize),
+        corrupted_positions: &'a [(usize, usize)],
     },
     Root {
         position: (usize, usize),
+        map_size: (usize, usize),
+        corrupted_positions: &'a [(usize, usize)],
     },
+}
+
+impl<'a> BFSCell<'a> {
+    pub fn new_root(
+        position: (usize, usize),
+        map_size: (usize, usize),
+        corrupted_positions: &'a [(usize, usize)],
+    ) -> BFSCell<'a> {
+        BFSCell::Root {
+            position,
+            map_size,
+            corrupted_positions,
+        }
+    }
+
+    pub fn new_child(
+        position: (usize, usize),
+        parent: Rc<BFSCell<'a>>,
+        map_size: (usize, usize),
+        corrupted_positions: &'a [(usize, usize)],
+    ) -> BFSCell<'a> {
+        BFSCell::Child {
+            position,
+            parent,
+            map_size,
+            corrupted_positions,
+        }
+    }
+
+    pub fn get_position(&self) -> (usize, usize) {
+        match *self {
+            BFSCell::Root { position, .. } | BFSCell::Child { position, .. } => position,
+        }
+    }
+
+    pub fn get_next_cells(&self) -> Vec<(usize, usize)> {
+        let debug = false;
+        let next_cells = self.get_next_cells_inside_map();
+        if debug {
+            next_cells
+                .iter()
+                .for_each(|&nc| println!("Next possible cell 1: ({}, {})", nc.0, nc.1));
+        }
+
+        let next_cells = self.get_non_corrupted_cells(next_cells);
+        if debug {
+            next_cells
+                .iter()
+                .for_each(|&nc| println!("Next possible cell 2: ({}, {})", nc.0, nc.1));
+        }
+
+        next_cells
+    }
+
+    fn get_next_cells_inside_map(&self) -> Vec<(usize, usize)> {
+        match *self {
+            BFSCell::Root {
+                position, map_size, ..
+            }
+            | BFSCell::Child {
+                position, map_size, ..
+            } => {
+                let x = i64::try_from(position.0).unwrap();
+                let y = i64::try_from(position.1).unwrap();
+                let max_x = i64::try_from(map_size.0).unwrap();
+                let max_y = i64::try_from(map_size.1).unwrap();
+
+                let mut next_cells = Vec::new();
+                if x - 1 >= 0 {
+                    next_cells.push((position.0 - 1, position.1));
+                }
+
+                if y - 1 >= 0 {
+                    next_cells.push((position.0, position.1 - 1));
+                }
+
+                if x + 1 < max_x {
+                    next_cells.push((position.0 + 1, position.1));
+                }
+
+                if y + 1 < max_y {
+                    next_cells.push((position.0, position.1 + 1));
+                }
+
+                return next_cells;
+            }
+        }
+    }
+
+    fn get_non_corrupted_cells(&self, cells: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
+        match *self {
+            BFSCell::Root {
+                position,
+                corrupted_positions,
+                ..
+            }
+            | BFSCell::Child {
+                position,
+                corrupted_positions,
+                ..
+            } => cells
+                .into_iter()
+                .filter(|&c| !corrupted_positions.contains(&c))
+                .collect(),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -152,47 +262,53 @@ impl MemoryArea {
         self.walk(self.start, Path::new(size).unwrap());
     }
 
-    fn breadth_first_search(&mut self, root_position: (usize, usize), mut path: Path) {
+    pub fn compute_paths_bfs(&mut self) {
+        self.breadth_first_search(self.start);
+    }
+
+    fn breadth_first_search(&mut self, root_position: (usize, usize)) {
         let mut queue: VecDeque<Rc<BFSCell>> = VecDeque::new();
         let mut explored = HashSet::new();
 
-        let root = Rc::new(BFSCell::Root {
-            position: root_position,
-        });
+        let root = Rc::new(BFSCell::new_root(
+            root_position,
+            (self.max_x, self.max_y),
+            &self.corrupted,
+        ));
         queue.push_back(root);
         explored.insert(root_position);
 
         while let Some(current) = queue.pop_front() {
-            if self.is_goal_reached(Rc::clone(&current), &path) {
-                // found either exit or max length
+            if self.is_goal_reached(Rc::clone(&current)) {
                 // TODO
+                let end_pos = current.get_position();
+                println!("Goal reached on position ({}, {})", end_pos.0, end_pos.1);
+                return;
             }
 
-            let next_cells = match *current {
-                BFSCell::Child { position, .. } | BFSCell::Root { position } => {
-                    // TODO: need to manage path here, since it has to be extracted from BFSCell
-                    self.get_next_cells(position, &path)
-                }
-            };
-
+            let next_cells = current.get_next_cells();
             for c in next_cells.iter() {
                 if !explored.contains(c) {
                     explored.insert(*c);
-                    let to_explore = Rc::new(BFSCell::Child {
-                        position: *c,
-                        parent: Rc::clone(&current),
-                    });
+                    let to_explore = Rc::new(BFSCell::new_child(
+                        *c,
+                        Rc::clone(&current),
+                        (self.max_x, self.max_y),
+                        &self.corrupted,
+                    ));
                     queue.push_back(to_explore);
                 }
             }
         }
     }
 
-    fn is_goal_reached(&self, cell: Rc<BFSCell>, path: &Path) -> bool {
+    fn is_goal_reached(&self, cell: Rc<BFSCell>) -> bool {
         let is_end = match *cell {
-            BFSCell::Child { position, .. } | BFSCell::Root { position } => position == self.end,
+            BFSCell::Child { position, .. } | BFSCell::Root { position, .. } => {
+                position == self.end
+            }
         };
-        is_end || self.is_path_too_long(path)
+        is_end
     }
 
     fn walk(&mut self, cell: (usize, usize), mut path: Path) {
@@ -235,6 +351,18 @@ impl MemoryArea {
             cell.1,
             path.len()
         );
+    }
+
+    fn get_next_cells_from_root(&self, root: &(usize, usize)) -> Vec<(usize, usize)> {
+        todo!()
+    }
+
+    fn get_next_cells_from_child(
+        &self,
+        root: &(usize, usize),
+        parent: &(usize, usize),
+    ) -> Vec<(usize, usize)> {
+        todo!()
     }
 
     fn get_next_cells(&self, cell: (usize, usize), path: &Path) -> Vec<(usize, usize)> {
@@ -384,5 +512,54 @@ x,y
         memory_area.compute_paths();
 
         assert_eq!(memory_area.min_path_len().unwrap(), 22);
+    }
+
+    #[test]
+    fn sample_input_path_length_compute_bfs_test() {
+        let raw_data = "\
+x,y
+5,4
+4,2
+4,5
+3,0
+2,1
+6,3
+2,4
+1,5
+0,6
+3,3
+2,6
+5,1
+1,2
+5,5
+2,5
+6,5
+1,4
+0,4
+6,4
+1,1
+6,1
+1,0
+0,5
+1,6
+2,0";
+        let size = (7, 7);
+
+        let corrupted: Vec<CorruptedCell> =
+            build_corrupted_cells(raw_data.as_bytes(), &size).unwrap();
+        let corrupted: Vec<(usize, usize)> = corrupted.iter().map(|c| (c.x, c.y)).collect();
+        assert_eq!(corrupted.len(), 25);
+
+        let start = (0, 0);
+        let end = (6, 6);
+        let mut memory_area = MemoryArea::new(&size, start, end, 23).unwrap();
+
+        assert_eq!(memory_area.num_corrupted(), 0);
+        memory_area.set_corrupted(&corrupted[0..12]);
+        assert_eq!(memory_area.num_corrupted(), 12);
+
+        memory_area.compute_paths_bfs();
+
+        // assert_eq!(memory_area.min_path_len().unwrap(), 22);
     }
 }

@@ -223,7 +223,6 @@ impl MemoryArea {
         size: &(usize, usize),
         start: (usize, usize),
         end: (usize, usize),
-        max_length: usize,
     ) -> Result<MemoryArea, &'static str> {
         let max_x = cmp::max(start.0, end.0);
         let max_y = cmp::max(start.1, end.1);
@@ -236,7 +235,7 @@ impl MemoryArea {
                 max_y,
                 start,
                 end,
-                max_length,
+                max_length: 0,
 
                 corrupted: Vec::new(),
                 paths: Vec::new(),
@@ -487,19 +486,34 @@ impl MemoryArea {
     }
 }
 
-pub fn run(config: Config) -> Result<(usize), Box<dyn Error>> {
+pub fn run(config: Config) -> Result<(usize, usize), Box<dyn Error>> {
     let raw_data = fs::read_to_string(config.puzzle_input)?;
     let size = (71, 71);
     let corrupted: Vec<CorruptedCell> = build_corrupted_cells(raw_data.as_bytes(), &size).unwrap();
     let corrupted: Vec<(usize, usize)> = corrupted.iter().map(|c| (c.x, c.y)).collect();
 
-    let start = (0, 0);
-    let end = (70, 70);
-    let mut memory_area = MemoryArea::new(&size, start, end, config.max_length).unwrap();
-    memory_area.set_corrupted(&corrupted[0..1024]);
-    memory_area.compute_paths_bfs();
-    let min = memory_area.min_steps_bfs().unwrap();
-    Ok((min))
+    let mut corrupted_pos = None;
+    for ix in 0..corrupted.len() {
+        println!("Simulating index {} ...", ix);
+
+        let start = (0, 0);
+        let end = (70, 70);
+        let mut memory_area = MemoryArea::new(&size, start, end).unwrap();
+        let num_corrupted = ix + 1;
+        memory_area.set_corrupted(&corrupted[0..num_corrupted]);
+        memory_area.compute_paths_bfs();
+
+        if !memory_area.goal_found() {
+            corrupted_pos = Some(corrupted[ix]);
+            break;
+        }
+    }
+
+    if let Some(pos) = corrupted_pos {
+        return Ok(pos);
+    }
+
+    return Err(String::from("Didn't find any position making the maze impossible").into());
 }
 
 // Note on printing during tests:
@@ -550,7 +564,7 @@ x,y
 
         let start = (0, 0);
         let end = (6, 6);
-        let mut memory_area = MemoryArea::new(&size, start, end, 23).unwrap();
+        let mut memory_area = MemoryArea::new(&size, start, end).unwrap();
 
         assert_eq!(memory_area.num_corrupted(), 0);
         memory_area.set_corrupted(&corrupted[0..12]);
@@ -599,7 +613,7 @@ x,y
 
         let start = (0, 0);
         let end = (6, 6);
-        let mut memory_area = MemoryArea::new(&size, start, end, 23).unwrap();
+        let mut memory_area = MemoryArea::new(&size, start, end).unwrap();
 
         assert_eq!(memory_area.num_corrupted(), 0);
         memory_area.set_corrupted(&corrupted[0..12]);
@@ -654,7 +668,7 @@ x,y
         for ix in 0..corrupted.len() {
             let start = (0, 0);
             let end = (6, 6);
-            let mut memory_area = MemoryArea::new(&size, start, end, 23).unwrap();
+            let mut memory_area = MemoryArea::new(&size, start, end).unwrap();
             let num_corrupted = ix + 1;
             memory_area.set_corrupted(&corrupted[0..num_corrupted]);
             assert_eq!(memory_area.num_corrupted(), num_corrupted);

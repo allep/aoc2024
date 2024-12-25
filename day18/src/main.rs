@@ -5,8 +5,11 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     let args: Vec<String> = env::args().collect();
     let config = day18::Config::build(&args)?;
-    let (min) = day18::run(config)?;
+    let position = day18::run(config)?;
 
-    println!("Min:         {min}");
+    println!(
+        "First impossible position: ({}, {})",
+        position.0, position.1
+    );
     Ok(())
 }

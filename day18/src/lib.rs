@@ -214,6 +214,7 @@ struct MemoryArea {
     corrupted: Vec<(usize, usize)>,
     paths: Vec<Path>,
     walked_cells: u64,
+    min_steps_bfs: usize,
 }
 
 impl MemoryArea {
@@ -239,6 +240,7 @@ impl MemoryArea {
                 corrupted: Vec::new(),
                 paths: Vec::new(),
                 walked_cells: 0,
+                min_steps_bfs: 0,
             });
         }
 
@@ -268,21 +270,25 @@ impl MemoryArea {
 
     fn breadth_first_search(&mut self, root_position: (usize, usize)) {
         let mut queue: VecDeque<Rc<BFSCell>> = VecDeque::new();
-        let mut explored = HashSet::new();
-
         let root = Rc::new(BFSCell::new_root(
             root_position,
             (self.max_x, self.max_y),
             &self.corrupted,
         ));
         queue.push_back(root);
+
+        let mut explored = HashSet::new();
         explored.insert(root_position);
 
         while let Some(current) = queue.pop_front() {
-            if self.is_goal_reached(Rc::clone(&current)) {
-                // TODO
+            if self.is_goal_reached(&current) {
                 let end_pos = current.get_position();
-                println!("Goal reached on position ({}, {})", end_pos.0, end_pos.1);
+                let steps = Self::compute_min_steps_bfs(&current);
+                self.min_steps_bfs = steps;
+                println!(
+                    "Goal reached on position ({}, {}), with steps = {}",
+                    end_pos.0, end_pos.1, steps
+                );
                 return;
             }
 
@@ -302,13 +308,37 @@ impl MemoryArea {
         }
     }
 
-    fn is_goal_reached(&self, cell: Rc<BFSCell>) -> bool {
-        let is_end = match *cell {
+    fn is_goal_reached(&self, cell: &Rc<BFSCell>) -> bool {
+        let is_end = match **cell {
             BFSCell::Child { position, .. } | BFSCell::Root { position, .. } => {
                 position == self.end
             }
         };
         is_end
+    }
+
+    fn compute_min_steps_bfs(cell: &Rc<BFSCell>) -> usize {
+        let mut cell_count: usize = 0;
+
+        let mut next = cell;
+        loop {
+            match **next {
+                BFSCell::Root { .. } => {
+                    cell_count += 1;
+                    break;
+                }
+                BFSCell::Child {
+                    position,
+                    ref parent,
+                    ..
+                } => {
+                    cell_count += 1;
+                    next = parent;
+                }
+            }
+        }
+
+        cell_count - 1
     }
 
     fn walk(&mut self, cell: (usize, usize), mut path: Path) {
@@ -424,6 +454,14 @@ impl MemoryArea {
             .collect()
     }
 
+    pub fn min_steps_bfs(&self) -> Result<usize, &'static str> {
+        if self.min_steps_bfs != 0 {
+            return Ok(self.min_steps_bfs);
+        }
+
+        Err("No path found")
+    }
+
     pub fn min_path_len(&self) -> Result<usize, &'static str> {
         if !self.paths.is_empty() {
             let min_num_cells = self.paths.iter().map(|p| p.len()).min().unwrap();
@@ -450,8 +488,8 @@ pub fn run(config: Config) -> Result<(usize), Box<dyn Error>> {
     let end = (70, 70);
     let mut memory_area = MemoryArea::new(&size, start, end, config.max_length).unwrap();
     memory_area.set_corrupted(&corrupted[0..1024]);
-    memory_area.compute_paths();
-    let min = memory_area.min_path_len().unwrap();
+    memory_area.compute_paths_bfs();
+    let min = memory_area.min_steps_bfs().unwrap();
     Ok((min))
 }
 
@@ -560,6 +598,6 @@ x,y
 
         memory_area.compute_paths_bfs();
 
-        // assert_eq!(memory_area.min_path_len().unwrap(), 22);
+        assert_eq!(memory_area.min_steps_bfs().unwrap(), 22);
     }
 }

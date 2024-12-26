@@ -34,6 +34,24 @@ pub fn parse_candidates_from_raw(raw_candidates: &str) -> Vec<String> {
     raw_candidates.lines().map(|s| s.to_owned()).collect()
 }
 
+fn can_split(s: &str, dictionary: &HashSet<String>) -> bool {
+    let candidate_len = s.len();
+    let mut can_be_split = vec![false; candidate_len + 1];
+
+    can_be_split[0] = true;
+
+    for ix in 1..(candidate_len + 1) {
+        for jx in 0..ix {
+            if can_be_split[jx] && dictionary.contains(&s[jx..ix]) {
+                can_be_split[ix] = true;
+                break;
+            }
+        }
+    }
+
+    can_be_split[candidate_len]
+}
+
 pub fn run(config: Config) -> Result<usize, Box<dyn Error>> {
     // TODO
     Ok(0)
@@ -63,11 +81,16 @@ bwurrg
 brgr
 bbrgwb";
 
+        let expected = vec![true, true, true, true, false, true, true, false];
+
         let dictionary = parse_dictionary_from_raw(dictionary);
         assert_eq!(dictionary.len(), 8);
-        dbg!(&dictionary);
         let candidates = parse_candidates_from_raw(candidates);
         assert_eq!(candidates.len(), 8);
-        dbg!(&candidates);
+        assert_eq!(candidates.len(), expected.len());
+
+        for (ix, candidate) in candidates.iter().enumerate() {
+            assert_eq!(can_split(&candidate, &dictionary), expected[ix]);
+        }
     }
 }

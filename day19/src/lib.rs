@@ -1,6 +1,7 @@
 use csv::Reader;
 use serde::de::DeserializeOwned;
 use std::collections::HashSet;
+use std::fs;
 use std::io::{self, Read};
 use std::{error::Error, fs::File, process};
 
@@ -53,8 +54,17 @@ fn can_split(s: &str, dictionary: &HashSet<String>) -> bool {
 }
 
 pub fn run(config: Config) -> Result<usize, Box<dyn Error>> {
-    // TODO
-    Ok(0)
+    let dictionary = fs::read_to_string(config.puzzle_input_dictionary)?;
+    let combinations = fs::read_to_string(config.puzzle_input_combinations)?;
+
+    let dictionary = parse_dictionary_from_raw(&dictionary);
+    let candidates = parse_candidates_from_raw(&combinations);
+
+    let num_possible = candidates
+        .iter()
+        .filter(|&c| can_split(c, &dictionary))
+        .count();
+    Ok(num_possible)
 }
 
 // Note on printing during tests:

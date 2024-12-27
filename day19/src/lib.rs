@@ -27,11 +27,11 @@ impl Config {
     }
 }
 
-pub fn parse_dictionary_from_raw(raw_dic: &str) -> HashSet<String> {
+fn parse_dictionary_from_raw(raw_dic: &str) -> HashSet<String> {
     raw_dic.split(',').map(|t| t.trim().to_owned()).collect()
 }
 
-pub fn parse_candidates_from_raw(raw_candidates: &str) -> Vec<String> {
+fn parse_candidates_from_raw(raw_candidates: &str) -> Vec<String> {
     raw_candidates.lines().map(|s| s.to_owned()).collect()
 }
 
@@ -53,7 +53,32 @@ fn can_split(s: &str, dictionary: &HashSet<String>) -> bool {
     can_be_split[candidate_len]
 }
 
-pub fn run(config: Config) -> Result<usize, Box<dyn Error>> {
+fn word_split_and_count(s: &str, dictionary: &HashSet<String>) -> u64 {
+    let candidate_len = s.len();
+    let mut decompositions = vec![Vec::new(); candidate_len + 1];
+
+    decompositions[0].push("".to_owned());
+
+    for ix in 1..(candidate_len + 1) {
+        for jx in 0..ix {
+            let token = &s[jx..ix];
+            if dictionary.contains(token) {
+                // jx is always less than ix
+                // FIXME
+                let (left, right) = decompositions.split_at_mut_checked(jx).unwrap();
+                let ix_mapped = ix - jx;
+
+                // FIXME here index jx lead to panic
+                for d in left[jx].iter() {
+                    right[ix_mapped].push(format!("{}{}", d, token));
+                }
+            }
+        }
+    }
+    decompositions[candidate_len].len() as u64
+}
+
+pub fn run(config: Config) -> Result<(usize, u64), Box<dyn Error>> {
     let dictionary = fs::read_to_string(config.puzzle_input_dictionary)?;
     let combinations = fs::read_to_string(config.puzzle_input_combinations)?;
 
@@ -64,7 +89,12 @@ pub fn run(config: Config) -> Result<usize, Box<dyn Error>> {
         .iter()
         .filter(|&c| can_split(c, &dictionary))
         .count();
-    Ok(num_possible)
+
+    let total: u64 = candidates
+        .iter()
+        .map(|c| word_split_and_count(&c, &dictionary))
+        .sum();
+    Ok((num_possible, total))
 }
 
 // Note on printing during tests:
@@ -102,5 +132,36 @@ bbrgwb";
         for (ix, candidate) in candidates.iter().enumerate() {
             assert_eq!(can_split(&candidate, &dictionary), expected[ix]);
         }
+    }
+
+    #[test]
+    fn sample_input_part2_test() {
+        let dictionary = "\
+r, wr, b, g, bwu, rb, gb, br";
+        let candidates = "\
+brwrr
+bggr
+gbbr
+rrbgbr
+ubwu
+bwurrg
+brgr
+bbrgwb";
+
+        let expected = vec![true, true, true, true, false, true, true, false];
+
+        let dictionary = parse_dictionary_from_raw(dictionary);
+        assert_eq!(dictionary.len(), 8);
+        let candidates = parse_candidates_from_raw(candidates);
+        assert_eq!(candidates.len(), 8);
+        assert_eq!(candidates.len(), expected.len());
+
+        let mut total = 0;
+        for (ix, candidate) in candidates.iter().enumerate() {
+            let split = word_split_and_count(&candidate, &dictionary);
+            total += split;
+        }
+
+        assert_eq!(total, 16);
     }
 }

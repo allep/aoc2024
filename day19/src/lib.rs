@@ -63,12 +63,8 @@ fn word_split_and_count(s: &str, dictionary: &HashSet<String>) -> u64 {
         for jx in 0..ix {
             let token = &s[jx..ix];
             if dictionary.contains(token) {
-                // jx is always less than ix
-                // FIXME
-                let (left, right) = decompositions.split_at_mut_checked(jx).unwrap();
-                let ix_mapped = ix - jx;
-
-                // FIXME here index jx lead to panic
+                let (left, right) = decompositions.split_at_mut_checked(jx + 1).unwrap();
+                let ix_mapped = ix - jx - 1;
                 for d in left[jx].iter() {
                     right[ix_mapped].push(format!("{}{}", d, token));
                 }
